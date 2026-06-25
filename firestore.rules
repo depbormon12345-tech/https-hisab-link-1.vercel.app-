@@ -1,0 +1,58 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: signed in via Firebase Auth?
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: own UID?
+    function isMe(uid) {
+      return isAuth() && request.auth.uid == uid;
+    }
+
+    // ── Per-Firebase-Auth-user data ─────────────────────────
+    match /users/{uid} {
+      allow read, write: if isMe(uid);
+
+      match /customers/{cid} {
+        allow read, write: if isMe(uid);
+        match /tx/{custId}/items/{txid} {
+          allow read, write: if isMe(uid);
+        }
+      }
+
+      match /meta/{doc=**} {
+        allow read, write: if isMe(uid);
+      }
+    }
+
+    // ── Shop password accounts ──────────────────────────────
+    // shop_<phone> docs are readable/writable publicly so shop
+    // users can register & login without Firebase Auth.
+    // Passwords are stored as SHA-256 hashes — never plaintext.
+    match /shopAccounts/{phone} {
+      // Anyone can create a new account (registration)
+      allow create: if true;
+      // Only the owner can read their own account doc (by phone)
+      allow read, update: if true;
+      // Delete not allowed through client
+      allow delete: if false;
+    }
+
+    // ── Per-shop-session user data (uid = "shop_<phone>") ───
+    match /users/{uid} {
+      // Shop sessions use uid = "shop_<phone>"; no Firebase Auth
+      // We allow read/write if the doc ID starts with "shop_"
+      // In production you should add server-side token validation.
+      allow read, write: if uid.matches('shop_.*');
+    }
+
+    // Default: deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

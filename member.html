@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>হিসাব লেখা — Admin Approve</title>
+
+<!-- Firebase Compat SDK -->
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+  background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%);
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+.card {
+  background: #fff; border-radius: 20px; padding: 28px 24px;
+  max-width: 440px; width: 100%;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+}
+.logo { font-size: 40px; text-align: center; margin-bottom: 6px; }
+h1 { text-align: center; font-size: 22px; font-weight: 800; color: #1d4ed8; margin-bottom: 4px; }
+.sub { text-align: center; font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+
+.info-box {
+  background: #f9fafb; border-radius: 12px; padding: 16px;
+  margin: 14px 0; border: 1px solid #e5e7eb;
+}
+.info-row {
+  display: flex; justify-content: space-between; padding: 10px 0;
+  border-bottom: 1px solid #f3f4f6; font-size: 14px;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { color: #6b7280; }
+.info-val { font-weight: 700; color: #111827; text-align: right; max-width: 60%; word-break: break-all; }
+
+.btn {
+  width: 100%; padding: 14px; border: none; border-radius: 14px;
+  font-size: 16px; font-weight: 700; cursor: pointer; margin-top: 8px;
+  transition: all 0.15s;
+}
+.btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.btn-approve { background: linear-gradient(135deg, #16a34a, #15803d); color: #fff; }
+.btn-approve:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(22,163,74,0.3); }
+.btn-reject { background: #fee2e2; color: #dc2626; }
+.btn-reject:hover:not(:disabled) { background: #fecaca; }
+.btn-secondary { background: #f3f4f6; color: #374151; }
+
+.success { text-align: center; padding: 16px 0; }
+.success-icon { font-size: 56px; margin-bottom: 12px; }
+.success-title { font-size: 22px; font-weight: 800; color: #16a34a; margin-bottom: 6px; }
+.success-sub { font-size: 14px; color: #6b7280; margin-bottom: 16px; }
+.wa-link {
+  display: block; background: #25D366; color: #fff; text-align: center;
+  padding: 14px; border-radius: 14px; font-weight: 700;
+  text-decoration: none; margin-top: 14px; font-size: 15px;
+}
+.wa-link.reject { background: #dc2626; }
+
+.err, .info { text-align: center; padding: 16px; font-size: 14px; border-radius: 10px; margin: 10px 0; }
+.err { color: #dc2626; background: #fee2e2; }
+.info { color: #1d4ed8; background: #dbeafe; }
+.warn { color: #d97706; background: #fef3c7; }
+
+.history { margin-top: 20px; }
+.history h3 { font-size: 14px; color: #6b7280; margin-bottom: 8px; padding-left: 4px; }
+.history-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 12px; background: #f9fafb; border-radius: 10px;
+  margin-bottom: 6px; font-size: 13px;
+}
+.history-item .left { display: flex; flex-direction: column; gap: 2px; }
+.history-item .phone { font-weight: 700; color: #111827; }
+.history-item .trx { color: #6b7280; font-size: 11px; font-family: monospace; }
+.history-item .days { background: #dcfce7; color: #16a34a; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 12px; }
+
+.admin-bar {
+  background: linear-gradient(135deg, #1e3a8a, #1d4ed8);
+  color: #fff; padding: 10px 16px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 16px; font-size: 13px;
+}
+.admin-bar .logout {
+  background: rgba(255,255,255,0.2); border: none; color: #fff;
+  padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer;
+}
+
+.spinner {
+  display: inline-block; width: 16px; height: 16px;
+  border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+  border-radius: 50%; animation: spin 0.8s linear infinite;
+  vertical-align: middle; margin-right: 6px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+
+<style>
+.report-table{width:100%;border-collapse:collapse;margin-top:12px;font-size:15px}
+.report-table th,.report-table td{border:1px solid #e5e5e5;padding:12px;text-align:center}
+.report-table th{background:#f5f5f5;font-weight:700}
+.report-table .left{text-align:left}
+.report-table .give{background:#fff1f1;color:#b3261e}
+.report-table .get{background:#f3fff3;color:#127a2f}
+</style>
+</head>
+<body>
+<div class="card" id="mainCard">
+  <div id="adminBar" style="display:none" class="admin-bar">
+    <span>👤 <span id="adminEmail">-</span></span>
+    <button class="logout" onclick="doLogout()">Logout</button>
+  </div>
+
+  <div class="logo">📒</div>
+  <h1>হিসাব লেখা</h1>
+  <p class="sub">সাবস্ক্রিপশন Approve প্যানেল (Admin)</p>
+
+  <div id="content">
+    <div style="text-align:center;padding:30px;color:#6b7280">
+      <span class="spinner" style="border-color:rgba(0,0,0,0.2);border-top-color:#6b7280"></span>
+      লোড হচ্ছে...
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Firebase config =====
+const firebaseConfig = {
+  apiKey: "AIzaSyDaydixwJBYqnvANlVOeuZ2686V5813Cls",
+  authDomain: "dokan-hisab-35ca7.firebaseapp.com",
+  projectId: "dokan-hisab-35ca7",
+  storageBucket: "dokan-hisab-35ca7.firebasestorage.app",
+  messagingSenderId: "549298306650",
+  appId: "1:549298306650:web:1e40c400f50b982b20e263",
+  measurementId: "G-Z86G9VR5SY"
+};
+
+// ===== Admin emails (তোমার Gmail) =====
+// এখানে শুধু এই email approve করতে পারবে
+const ADMIN_EMAILS = [
+  "depbormon12345@gmail.com"
+];
+
+function bn(n) { return String(n).replace(/[0-9]/g, d => '০১২৩৪৫৬৭৮৯'[d]); }
+
+// ===== State =====
+const params = new URLSearchParams(window.location.search);
+const phoneParam = params.get('phone') || '';
+const daysParam = parseInt(params.get('days')) || 0;
+const trxParam = params.get('trx') || '';
+
+let currentUser = null;
+let currentReqDocId = null;
+let db = null, auth = null;
+
+// ===== Init =====
+function whenFirebaseReady(cb) {
+  (function poll() {
+    if (window.firebase && firebase.auth && firebase.firestore) cb();
+    else setTimeout(poll, 50);
+  })();
+}
+
+whenFirebaseReady(function () {
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+  auth.languageCode = 'bn';
+
+  auth.onAuthStateChanged(function (user) {
+    currentUser = user;
+    if (user) {
+      // admin check
+      if (!ADMIN_EMAILS.includes(user.email)) {
+        document.getElementById('content').innerHTML = `
+          <div class="err">
+            <strong>⛔ অ্যাক্সেস নেই</strong><br><br>
+            আপনার email (<code>${user.email}</code>) admin list এ নেই।<br>
+            <small>Admin: source code এ ADMIN_EMAILS array update করুন।</small>
+          </div>
+          <button class="btn btn-secondary" onclick="doLogout()">Logout</button>
+        `;
+        return;
+      }
+      document.getElementById('adminBar').style.display = 'flex';
+      document.getElementById('adminEmail').textContent = user.email;
+      render();
+      loadPendingRequests();
+    } else {
+      document.getElementById('adminBar').style.display = 'none';
+      showLoginScreen();
+    }
+  });
+});
+
+// ===== Login (Google) =====
+function showLoginScreen() {
+  document.getElementById('content').innerHTML = `
+    <div class="info" style="margin-bottom:16px">
+      👋 Admin login করুন (Google account)
+    </div>
+    <button class="btn btn-approve" onclick="loginGoogle()">
+      <span style="font-size:18px;vertical-align:middle">🔐</span> Google দিয়ে Login
+    </button>
+  `;
+}
+
+window.loginGoogle = function () {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(function (e) {
+    alert('Login failed: ' + e.message);
+  });
+};
+
+window.doLogout = function () {
+  auth.signOut();
+};
+
+// ===== Render =====
+function render() {
+  if (!phoneParam || !daysParam || !trxParam) {
+    document.getElementById('content').innerHTML = `
+      <div class="err">❌ তথ্য অসম্পূর্ণ।<br><small>URL সঠিক নয়।</small></div>
+    `;
+    return;
+  }
+
+  const planLabel = daysParam <= 30 ? '১ মাস (৳৫০)' : '৪ মাস (৳১৮০)';
+  const amt = daysParam <= 30 ? 50 : 180;
+
+  document.getElementById('content').innerHTML = `
+    <div class="info-box">
+      <div class="info-row"><span class="info-label">📞 ফোন</span><span class="info-val">${phoneParam}</span></div>
+      <div class="info-row"><span class="info-label">🧾 TrxID</span><span class="info-val">${trxParam}</span></div>
+      <div class="info-row"><span class="info-label">📦 প্ল্যান</span><span class="info-val">${planLabel}</span></div>
+      <div class="info-row"><span class="info-label">💰 পরিমাণ</span><span class="info-val">৳${amt}</span></div>
+      <div class="info-row"><span class="info-label">📅 দিন</span><span class="info-val">${bn(daysParam)} দিন</span></div>
+    </div>
+    <button class="btn btn-approve" id="approveBtn" onclick="doApprove()">
+      ✅ Approve করুন
+    </button>
+    <button class="btn btn-reject" onclick="doReject()">
+      ❌ বাতিল করুন
+    </button>
+    <div id="historyMount"></div>
+  `;
+  loadPendingRequests();
+}
+
+// ===== Approve / Reject =====
+async function findUserUidByPhone(phone) {
+  // phone থেকে uid বের করার জন্য users collection scan
+  // (সাধারণত auth user list দেখা যায় না client-side, তাই
+  //  আমরা phone কে 'fake email' হিসেবে ব্যবহার করতে পারি অথবা
+  //  একটা mapping collection রাখতে পারি — নিচে দেখো)
+  const normalized = phone.replace(/\D/g, '');
+  // users collection scan
+  const snap = await db.collection('users').get();
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    if (data.shop && data.shop.phone) {
+      const localPhone = data.shop.phone.replace(/\D/g, '');
+      if (localPhone === normalized || localPhone.endsWith(normalized) || normalized.endsWith(localPhone)) {
+        return doc.id;
+      }
+    }
+  }
+  return null;
+}
+
+async function findOrCreateRequestDoc(phone, days, trx) {
+  // pending_requests collection — admin approve queue
+  const reqs = await db.collection('pending_requests')
+    .where('phone', '==', phone)
+    .where('trx', '==', trx)
+    .where('status', '==', 'pending')
+    .get();
+  if (!reqs.empty) return reqs.docs[0];
+
+  const newDoc = await db.collection('pending_requests').add({
+    phone: phone,
+    days: days,
+    trx: trx,
+    status: 'pending',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    createdBy: currentUser.email
+  });
+  return await newDoc.get();
+}
+
+window.doApprove = async function () {
+  const btn = document.getElementById('approveBtn');
+  if (btn.disabled) return;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Approve হচ্ছে...';
+
+  try {
+    // 1. user খুঁজি phone দিয়ে
+    const uid = await findUserUidByPhone(phoneParam);
+
+    // 2. pending request doc তৈরি/খুঁজি
+    const reqDoc = await findOrCreateRequestDoc(phoneParam, daysParam, trxParam);
+
+    if (uid) {
+      // 3. user এর subscription update
+      const userRef = db.collection('users').doc(uid);
+      const userSnap = await userRef.get();
+      const userData = userSnap.exists ? userSnap.data() : {};
+      const currentSub = userData.subscription || {};
+      const now = Date.now();
+
+      // base expiry: current যদি future এ থাকে, সেটার উপর add করি
+      const baseExp = (currentSub.expiry && currentSub.expiry > now) ? currentSub.expiry : now;
+      const newExpiry = baseExp + daysParam * 86400000;
+
+      await userRef.set({
+        subscription: {
+          expiry: newExpiry,
+          plan: daysParam <= 30 ? '1month' : '4month',
+          lastTrx: trxParam,
+          createdAt: currentSub.createdAt || now,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          approvedBy: currentUser.email,
+          approvedAt: firebase.firestore.FieldValue.serverTimestamp()
+        },
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      // pending request update
+      await reqDoc.ref.update({
+        status: 'approved',
+        uid: uid,
+        processedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Activity log
+      await db.collection('admin_logs').add({
+        action: 'approve',
+        adminEmail: currentUser.email,
+        phone: phoneParam,
+        trx: trxParam,
+        days: daysParam,
+        uid: uid,
+        at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      // Success UI + WhatsApp link
+      showApprovedUI(uid);
+    } else {
+      // user app এ login করেনি এখনো — pending এ রাখি
+      await reqDoc.ref.update({
+        status: 'awaiting_user',
+        processedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      await db.collection('admin_logs').add({
+        action: 'approve_pending_user',
+        adminEmail: currentUser.email,
+        phone: phoneParam,
+        trx: trxParam,
+        days: daysParam,
+        at: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      showApprovedPendingUserUI();
+    }
+  } catch (e) {
+    console.error(e);
+    btn.disabled = false;
+    btn.innerHTML = '✅ Approve করুন';
+    alert('Approve ব্যর্থ: ' + e.message);
+  }
+};
+
+window.doReject = async function () {
+  if (!confirm('এই পেমেন্ট বাতিল করতে চান?')) return;
+  try {
+    await db.collection('pending_requests').add({
+      phone: phoneParam,
+      days: daysParam,
+      trx: trxParam,
+      status: 'rejected',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      processedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      processedBy: currentUser.email
+    });
+    showRejectedUI();
+  } catch (e) {
+    alert('ব্যর্থ: ' + e.message);
+  }
+};
+
+function showApprovedUI(uid) {
+  const planLabel = daysParam <= 30 ? '১ মাস' : '৪ মাস';
+  const msg = `✅ *হিসাব লেখা Activated!*\n\nআপনার সাবস্ক্রিপশন (${planLabel}) চালু হয়েছে।\n\n📱 App টি Reopen করুন — auto ${daysParam} দিন active।`;
+  const waNum = phoneParam.startsWith('0') ? '88' + phoneParam : phoneParam;
+  const waUrl = `https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="success">
+      <div class="success-icon">✅</div>
+      <div class="success-title">Approved!</div>
+      <div class="success-sub">${phoneParam} — ${bn(daysParam)} দিন active</div>
+      <div class="info" style="margin-top:14px">
+        🎉 User app reopen করলেই instant activate হবে!
+      </div>
+    </div>
+    <a href="${waUrl}" target="_blank" class="wa-link">📲 WhatsApp এ জানান</a>
+    <button class="btn btn-secondary" onclick="window.close()">বন্ধ করুন</button>
+  `;
+  loadPendingRequests();
+}
+
+function showApprovedPendingUserUI() {
+  document.getElementById('content').innerHTML = `
+    <div class="success">
+      <div class="success-icon">⏳</div>
+      <div class="success-title">Pending এ রাখা হলো</div>
+      <div class="success-sub">${phoneParam}</div>
+      <div class="warn" style="margin-top:14px">
+        ⚠️ User এখনো app এ login করেনি।<br>
+        সে login করলে subscription automatically activate হবে।
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="window.close()">বন্ধ করুন</button>
+  `;
+}
+
+function showRejectedUI() {
+  const msg = `❌ *হিসাব লেখা পেমেন্ট বাতিল*\n\nআপনার TrxID (${trxParam}) যাচাই করা যায়নি।\nসঠিক TrxID দিয়ে আবার পেমেন্ট করুন।`;
+  const waNum = phoneParam.startsWith('0') ? '88' + phoneParam : phoneParam;
+  const waUrl = `https://wa.me/${waNum}?text=${encodeURIComponent(msg)}`;
+
+  document.getElementById('content').innerHTML = `
+    <div class="success">
+      <div class="success-icon">❌</div>
+      <div class="success-title" style="color:#dc2626">বাতিল করা হয়েছে</div>
+    </div>
+    <a href="${waUrl}" target="_blank" class="wa-link reject">📲 User কে জানান</a>
+    <button class="btn btn-secondary" onclick="window.close()">বন্ধ করুন</button>
+  `;
+}
+
+// ===== Pending requests history =====
+async function loadPendingRequests() {
+  const mount = document.getElementById('historyMount');
+  if (!mount) return;
+  try {
+    const snap = await db.collection('pending_requests')
+      .where('status', 'in', ['pending', 'awaiting_user'])
+      .orderBy('createdAt', 'desc')
+      .limit(10)
+      .get();
+
+    if (snap.empty) return;
+
+    let html = `<div class="history"><h3>📋 Pending requests (${snap.size})</h3>`;
+    snap.forEach(doc => {
+      const r = doc.data();
+      html += `
+        <div class="history-item">
+          <div class="left">
+            <span class="phone">${r.phone}</span>
+            <span class="trx">${r.trx}</span>
+          </div>
+          <span class="days">${bn(r.days)} দিন</span>
+        </div>
+      `;
+    });
+    html += `</div>`;
+    mount.innerHTML = html;
+  } catch (e) {
+    console.warn('history load failed', e);
+  }
+}
+</script>
+
+<!-- Excel-style report template
+<table class="report-table">
+<tr><th>লেনদেনের বিবরণ</th><th>দিলাম</th><th>পেলাম</th></tr>
+<tr><td class="left">২৪ জুন, ২০২৬<br><small>১২:২৪ AM</small><br>পাবে ১,০০০.০০</td><td class="give">১০০.০০</td><td class="get"></td></tr>
+<tr><td class="left">শুরু<br>২৩ জুন, ২০২৬<br><small>১২:১৩ AM</small></td><td class="give">১,০০০.০০</td><td class="get"></td></tr>
+<tr><th class="left">মোট</th><th class="give">১,১০০.০০</th><th class="get">০.০০</th></tr>
+</table>
+-->
+
+<script>
+(function () {
+  try {
+    const p = new URLSearchParams(location.search);
+    const days = parseInt(p.get('days') || '0', 10);
+    const trx = p.get('trx');
+    const phone = p.get('phone');
+
+    if (days > 0 && trx && phone) {
+      const now = Date.now();
+      const sub = JSON.parse(localStorage.getItem('tk2_subscription') || '{}');
+
+      sub.plan = 'premium';
+      sub.expiry = Math.max(sub.expiry || 0, now + days * 86400000);
+      sub.createdAt = sub.createdAt || now;
+      sub.updatedAt = now;
+      sub.lastTrx = trx;
+      sub.phone = phone;
+
+      localStorage.setItem('tk2_subscription', JSON.stringify(sub));
+      sessionStorage.setItem('tk_sub_updated', '1');
+    }
+  } catch (e) {}
+})();
+</script>
+
+
+<script>
+window.requireActiveSubscription = function(){
+  try {
+    if (typeof isSubActive === 'function' && !isSubActive()) {
+      if (typeof showSubPlans === 'function') showSubPlans();
+      return false;
+    }
+  } catch(e) {}
+  return true;
+};
+</script>
+
+</body>
+</html>
