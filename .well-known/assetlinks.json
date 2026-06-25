@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.vercel.hisab_link.twa",
+        "sha256_cert_fingerprints": ["CA:D1:3E:5D:67:54:11:44:79:EF:B2:53:3F:1B:90:2D:93:A7:D7:BD:1D:59:9A:42:E7:03:B0:38:BA:0E:F1:70"]
+      }
+    }]
