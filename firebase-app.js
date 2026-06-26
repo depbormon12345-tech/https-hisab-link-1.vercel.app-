@@ -141,19 +141,7 @@ async function shopRegister(shopName, phone, password) {
     shopLogin: shopLogin,
     shopRegister: shopRegister,
 
-    signOut: async function () {
-      sessionStorage.removeItem('tk_fresh_login');
-      _clearShopSession();
-      if (firebase.auth().currentUser) {
-        return firebase.auth().signOut();
-      }
-      // Shop-only session logout
-      window.dispatchEvent(new Event('tk-shop-signout'));
-    },
-
-    currentUser: function () {
-      return firebase.auth().currentUser;
-    },
+    
 
     onAuth: function (cb) {
       return firebase.auth().onAuthStateChanged(cb);
@@ -169,6 +157,15 @@ async function shopRegister(shopName, phone, password) {
     if (typeof ts === 'number') return ts;
     return 0;
   }
+   signOut: async function () {
+  await pushNow();
+  sessionStorage.removeItem('tk_fresh_login');
+  _clearShopSession();
+  if (firebase.auth().currentUser) {
+    return firebase.auth().signOut();
+  }
+  window.dispatchEvent(new Event('tk-shop-signout'));
+},
 
   function getUid() {
     const u = firebase.auth().currentUser;
