@@ -664,7 +664,11 @@ async function shopRegister(shopName, phone, password) {
   // ── BOOT ─────────────────────────────────────────────────────
   window.addEventListener('firebase-ready', function () {
     hookLocalMutators();
-
+// Re-hook after a delay to catch late-defined functions
+  setTimeout(function() {
+    window.__syncHooked = false;
+    hookLocalMutators();
+  }, 2000);
     var shopSession = _getShopSession();
     var freshLogin  = sessionStorage.getItem('tk_fresh_login');
 
