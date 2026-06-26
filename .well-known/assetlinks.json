@@ -1,8 +1,8 @@
 [{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "app.vercel.hisab_link.twa",
-        "sha256_cert_fingerprints": ["D1:20:09:50:A1:78:D0:B8:41:EB:8A:ED:0A:65:93:DB:D9:EA:37:36:C0:7E:5B:8A:C2:C5:5F:74:00:43:44:84"]
-      }
-    }]
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.hisab_link_1.twa",
+    "sha256_cert_fingerprints": ["FC:DD:03:92:1A:D5:29:11:E4:1F:9B:E0:34:F6:0B:CD:61:14:2C:14:26:30:60:7B:93:5D:9C:9D:42:46:13:77"]
+  }
+}]
