@@ -153,6 +153,88 @@ const ADMIN_EMAILS = [
 
 function bn(n) { return String(n).replace(/[0-9]/g, d => '০১২৩৪৫৬৭৮৯'[d]); }
 
+  // ===== IndexedDB SETUP =====
+const DB_NAME = "hisab_offline_db";
+const STORE = "customers";
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 1);
+
+    request.onupgradeneeded = function (e) {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+      }
+    };
+
+    request.onsuccess = e => resolve(e.target.result);
+    request.onerror = e => reject(e);
+  });
+}
+
+async function addOfflineCustomer(data) {
+  const db = await openDB();
+  const tx = db.transaction(STORE, "readwrite");
+  tx.objectStore(STORE).add({
+    ...data,
+    synced: false,
+    createdAt: Date.now()
+  });
+  }
+  window.addEventListener("offline", () => {
+  console.log("OFFLINE MODE ON");
+});
+
+window.addEventListener("online", () => {
+  console.log("ONLINE MODE → SYNC START");
+  syncOfflineData();
+});
+  async function syncOfflineData() {
+  const db = await openDB();
+  const tx = db.transaction(STORE, "readonly");
+  const store = tx.objectStore(STORE);
+
+  const all = store.getAll();
+
+  all.onsuccess = async function () {
+    const data = all.result;
+
+    for (const item of data) {
+      if (!item.synced) {
+        try {
+          await firebase.firestore().collection("customers").add({
+            name: item.name,
+            phone: item.phone,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+
+          // mark synced
+          item.synced = true;
+
+          const tx2 = db.transaction(STORE, "readwrite");
+          tx2.objectStore(STORE).put(item);
+
+        } catch (e) {
+          console.log("sync failed", e);
+        }
+      }
+    }
+  };
+      }
+  async function addCustomer(name, phone) {
+  if (!navigator.onLine) {
+    await addOfflineCustomer({ name, phone });
+    alert("Offline save হয়েছে");
+    return;
+  }
+
+  await firebase.firestore().collection("customers").add({
+    name,
+    phone,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  }
 // ===== State =====
 const params = new URLSearchParams(window.location.search);
 const phoneParam = params.get('phone') || '';
