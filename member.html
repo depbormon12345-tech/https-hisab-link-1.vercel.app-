@@ -129,6 +129,11 @@ h1 { text-align: center; font-size: 22px; font-weight: 800; color: #1d4ed8; marg
 </div>
 
 <script>
+  await db.collection("customers").doc(phone).set({
+  phone: phone,
+  name: name || "",
+  createdAt: firebase.firestore.FieldValue.serverTimestamp()
+}, { merge: true });
 // ===== Firebase config =====
 const firebaseConfig = {
   apiKey: "AIzaSyDaydixwJBYqnvANlVOeuZ2686V5813Cls",
