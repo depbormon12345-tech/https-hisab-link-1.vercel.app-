@@ -577,29 +577,7 @@ async function loadPendingRequests() {
 -->
 
 <script>
-(function () {
-  try {
-    const p = new URLSearchParams(location.search);
-    const days = parseInt(p.get('days') || '0', 10);
-    const trx = p.get('trx');
-    const phone = p.get('phone');
 
-    if (days > 0 && trx && phone) {
-      const now = Date.now();
-      const sub = JSON.parse(localStorage.getItem('tk2_subscription') || '{}');
-
-      sub.plan = 'premium';
-      sub.expiry = Math.max(sub.expiry || 0, now + days * 86400000);
-      sub.createdAt = sub.createdAt || now;
-      sub.updatedAt = now;
-      sub.lastTrx = trx;
-      sub.phone = phone;
-
-      localStorage.setItem('tk2_subscription', JSON.stringify(sub));
-      sessionStorage.setItem('tk_sub_updated', '1');
-    }
-  } catch (e) {}
-})();
 </script>
 
 
