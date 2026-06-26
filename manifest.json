@@ -1,14 +1,23 @@
 {
   "name": "হিসাব লেখা",
   "short_name": "হিসাব লেখা",
-  "description": "গ্রাহকের দেনা-পাওনা হিসাব রাখুন",
-  "start_url": "/",
+  "description": "আপনার দেনা-পাওনা হিসাব রাখুন",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f4f8f5",
   "theme_color": "#1a6b3a",
   "orientation": "portrait",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
   ]
 }
