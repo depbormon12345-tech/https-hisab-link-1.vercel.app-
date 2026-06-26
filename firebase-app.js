@@ -64,22 +64,34 @@
       .map(b => b.toString(16).padStart(2, '0'))
       .join('');
   }
-
-  async function shopRegister(shopName, phone, password) {
+async function shopRegister(shopName, phone, password) {
     const hashed = await hashPassword(password);
     const ref = window.db.collection('shopAccounts').doc(phone);
     const snap = await ref.get();
     if (snap.exists) throw new Error('এই ফোন নম্বরে আগেই অ্যাকাউন্ট আছে');
+    const now = Date.now();
     await ref.set({
       shopName: shopName,
       phone: phone,
       passwordHash: hashed,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-    // Store session in localStorage
+    // ── নতুন: Firestore-এ ট্রায়াল subscription সেভ করো ──
+    const uid = 'shop_' + phone;
+    await window.db.collection('users').doc(uid).set({
+      shop: { name: shopName, phone: phone },
+      subscription: {
+        expiry: now + 15 * 86400000,
+        plan: 'free',
+        createdAt: now,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }
+    }, { merge: true });
     _setShopSession({ phone, shopName });
     return { phone, shopName };
-  }
+}
+
+  
 
   async function shopLogin(phone, password) {
     const hashed = await hashPassword(password);
