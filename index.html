@@ -1145,11 +1145,15 @@ function saveNewCustomer() {
     saveTxs(id, [tx]);
   }
   saveCustomers(customers);
+
+  // ✅ FIX: Firestore-এ push করো
+  if (window.TKSync) window.TKSync.push();
+
   showToast('"' + name + '" যোগ হয়েছে ✓');
   showView('homeView');
   renderList();
   setTimeout(() => openCustomer(id), 100);
-}
+      }
 
 // ===== DETAIL VIEW =====
 function openCustomer(id) {
