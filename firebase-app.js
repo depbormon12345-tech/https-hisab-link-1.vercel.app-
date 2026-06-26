@@ -694,11 +694,7 @@ async function shopRegister(shopName, phone, password) {
         if (typeof renderList === 'function') renderList();
         if (typeof renderSubBadge === 'function') renderSubBadge();
         showSyncStatus('syncing');
-        pullFromCloud().then(function (res) {
-          if (typeof renderList === 'function') renderList();
-          if (typeof renderSubBadge === 'function') renderSubBadge();
-          showSyncStatus(res.ok ? 'online' : 'offline');
-        });
+        
         startSubListener();
       } else if (shopSession) {
         // Shop session (offline-capable)
@@ -711,11 +707,24 @@ async function shopRegister(shopName, phone, password) {
         if (typeof renderSubBadge === 'function') renderSubBadge();
         showSyncStatus('syncing');
         pullFromCloud().then(function (res) {
-          if (typeof renderList === 'function') renderList();
-          if (typeof renderSubBadge === 'function') renderSubBadge();
-          showSyncStatus(res.ok ? 'online' : 'offline');
-        });
+  if (typeof renderList === 'function') renderList();
+  if (typeof renderSubBadge === 'function') renderSubBadge();
+  showSyncStatus(res.ok ? 'online' : 'offline');
+  if (!res.ok) console.warn('[SYNC] pull failed:', res.reason);
+}).catch(function(e) {
+  console.error('[SYNC] pull error:', e);
+  showSyncStatus('offline');
+});
         startSubListener();
+         pullFromCloud().then(function (res) {
+  if (typeof renderList === 'function') renderList();
+  if (typeof renderSubBadge === 'function') renderSubBadge();
+  showSyncStatus(res.ok ? 'online' : 'offline');
+  if (!res.ok) console.warn('[SYNC] pull failed:', res.reason);
+}).catch(function(e) {
+  console.error('[SYNC] pull error:', e);
+  showSyncStatus('offline');
+});
       } else {
         // Not signed in — show login screen
         console.log('[AUTH] not signed in');
