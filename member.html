@@ -111,6 +111,21 @@ h1 { text-align: center; font-size: 22px; font-weight: 800; color: #1d4ed8; marg
 </head>
 <body>
 <div class="card" id="mainCard">
+  <div>
+    <input id="name" placeholder="Name">
+    <input id="phone" placeholder="Phone">
+
+    <button onclick="addCustomer(
+      document.getElementById('name').value,
+      document.getElementById('phone').value
+    )">
+      Add Customer
+    </button>
+
+    <div id="customerList"></div>
+  </div>
+
+  <div id="content">
   <div id="adminBar" style="display:none" class="admin-bar">
     <span>👤 <span id="adminEmail">-</span></span>
     <button class="logout" onclick="doLogout()">Logout</button>
@@ -152,7 +167,47 @@ const ADMIN_EMAILS = [
 ];
 
 function bn(n) { return String(n).replace(/[0-9]/g, d => '০১২৩৪৫৬৭৮৯'[d]); }
+async function addCustomer(name, phone) {
+  try {
+    await firebase.firestore().collection("customers").add({
+      name,
+      phone,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
 
+    alert("Customer saved ✅");
+    loadCustomers(); // save এর পর reload
+  } catch (e) {
+    console.error(e);
+    alert("Save failed");
+  }
+}
+  async function loadCustomers() {
+  try {
+    const snap = await firebase.firestore()
+      .collection("customers")
+      .orderBy("createdAt", "desc")
+      .get();
+
+    let html = "";
+
+    snap.forEach(doc => {
+      const d = doc.data();
+
+      html += `
+        <div style="padding:10px;border:1px solid #ddd;margin:5px">
+          <b>${d.name}</b><br>
+          ${d.phone}
+        </div>
+      `;
+    });
+
+    document.getElementById("customerList").innerHTML = html;
+
+  } catch (e) {
+    console.error(e);
+  }
+  }
   // ===== IndexedDB SETUP =====
 const DB_NAME = "hisab_offline_db";
 const STORE = "customers";
@@ -262,6 +317,7 @@ whenFirebaseReady(function () {
   auth.onAuthStateChanged(function (user) {
     currentUser = user;
     if (user) {
+      loadCustomers();
       // admin check
       if (!ADMIN_EMAILS.includes(user.email)) {
         document.getElementById('content').innerHTML = `
