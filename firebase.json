@@ -4,7 +4,6 @@
     "ignore": [
       "firebase.json",
       ".firebase/**",
-      "**/.*",
       "**/node_modules/**",
       "firestore.rules",
       "icon-source.png"
@@ -16,6 +15,12 @@
       }
     ],
     "headers": [
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          { "key": "Content-Type", "value": "application/json" }
+        ]
+      },
       {
         "source": "/sw.js",
         "headers": [
