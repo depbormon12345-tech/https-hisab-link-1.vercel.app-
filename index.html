@@ -796,9 +796,7 @@ function initSubscription() {
   }
 }
 
-function checkSubAndProceed(action) {
-  action(); return;
-}
+
 
 function showSubExpiredModal() {
   showModal(`
@@ -811,7 +809,13 @@ function showSubExpiredModal() {
     <button class="modal-btn secondary" onclick="closeModal()">পরে নেবো</button>
   `);
 }
-
+function checkSubAndProceed(action) {
+  if (!isSubActive()) {
+    showSubExpiredModal();
+    return;
+  }
+  action();
+  }
 function showSubPlans() {
   const shop = getShop();
   if (!shop.name) {
