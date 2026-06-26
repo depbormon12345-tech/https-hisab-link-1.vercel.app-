@@ -126,6 +126,21 @@ h1 { text-align: center; font-size: 22px; font-weight: 800; color: #1d4ed8; marg
   </div>
 
   <div id="content">
+    <div style="margin-top:20px">
+  <h3>➕ নতুন কাস্টমার যোগ</h3>
+
+  <input id="name" placeholder="Name" style="width:100%;padding:10px;margin:5px 0">
+  <input id="phone" placeholder="Phone" style="width:100%;padding:10px;margin:5px 0">
+
+  <button onclick="addCustomer(
+    document.getElementById('name').value,
+    document.getElementById('phone').value
+  )" class="btn btn-approve">
+    Add Customer
+  </button>
+
+  <div id="customerList"></div>
+    </div>
   <div id="adminBar" style="display:none" class="admin-bar">
     <span>👤 <span id="adminEmail">-</span></span>
     <button class="logout" onclick="doLogout()">Logout</button>
@@ -652,3 +667,47 @@ window.requireActiveSubscription = function(){
 </body>
 </html>
 
+</script>
+
+<!-- 👇 এখান থেকে শুরু করে নতুন কোড বসবে -->
+
+<script>
+// ===== ADD CUSTOMER =====
+window.addCustomer = async function(name, phone) {
+  if (!name || !phone) return alert("সব তথ্য দিন");
+
+  await db.collection("customers").add({
+    name: name,
+    phone: phone,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+
+  loadCustomers();
+};
+
+// ===== LOAD CUSTOMER =====
+window.loadCustomers = async function() {
+  const snap = await db.collection("customers")
+    .orderBy("createdAt", "desc")
+    .get();
+
+  let html = "";
+
+  snap.forEach(doc => {
+    const c = doc.data();
+    html += `
+      <div style="background:#f3f4f6;padding:10px;margin:5px;border-radius:10px">
+        <b>${c.name}</b><br>
+        📞 ${c.phone}
+      </div>
+    `;
+  });
+
+  document.getElementById("customerList").innerHTML = html;
+};
+</script>
+
+<!-- 👆 এখানে শেষ -->
+
+</body>
+</html>
