@@ -684,7 +684,10 @@ async function shopRegister(shopName, phone, password) {
     if (typeof renderList === 'function') renderList();
     if (typeof renderSubBadge === 'function') renderSubBadge();
     showSyncStatus('syncing');
-    pullFromCloud().then(function (res) {
+    // আগে dirty data push করো, তারপর pull করো
+    pushNow().catch(function(){}).then(function() {
+      return pullFromCloud();
+    }).then(function (res) {
       if (typeof renderList === 'function') renderList();
       if (typeof renderSubBadge === 'function') renderSubBadge();
       showSyncStatus(res.ok ? 'online' : 'offline');
@@ -767,7 +770,10 @@ async function shopRegister(shopName, phone, password) {
         if (typeof renderList === 'function') renderList();
         if (typeof renderSubBadge === 'function') renderSubBadge();
         showSyncStatus('syncing');
-        pullFromCloud().then(function (res) {
+        // আগে dirty data push করো, তারপর pull করো
+        pushNow().catch(function(){}).then(function() {
+          return pullFromCloud();
+        }).then(function (res) {
           if (typeof renderList === 'function') renderList();
           if (typeof renderSubBadge === 'function') renderSubBadge();
           showSyncStatus(res.ok ? 'online' : 'offline');
@@ -787,7 +793,10 @@ async function shopRegister(shopName, phone, password) {
         if (typeof renderList === 'function') renderList();
         if (typeof renderSubBadge === 'function') renderSubBadge();
         showSyncStatus('syncing');
-        pullFromCloud().then(function (res) {
+        // আগে dirty data push করো, তারপর pull করো
+        pushNow().catch(function(){}).then(function() {
+          return pullFromCloud();
+        }).then(function (res) {
           if (typeof renderList === 'function') renderList();
           if (typeof renderSubBadge === 'function') renderSubBadge();
           showSyncStatus(res.ok ? 'online' : 'offline');
