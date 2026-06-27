@@ -300,6 +300,8 @@ async function shopRegister(shopName, phone, password) {
         }
       });
       saveCustomers(localCustomers);
+      // Cloud থেকে data আসার পর UI আপডেট করো
+      if (typeof window.renderList === 'function') window.renderList();
 
       await uref.set({ meta: { lastSync: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
       return { ok: true, customers: custSnap.size };
@@ -377,6 +379,8 @@ async function shopRegister(shopName, phone, password) {
       });
       // saveCustomers hook এড়িয়ে সরাসরি localStorage এ সেভ (loop এড়াতে)
       try { localStorage.setItem('tk2_customers', JSON.stringify(freshC)); } catch(e) {}
+      // UI আপডেট করো
+      if (typeof window.renderList === 'function') window.renderList();
 
       const deleted = JSON.parse(localStorage.getItem('tk2_deleted') || '[]');
       if (deleted.length) {
