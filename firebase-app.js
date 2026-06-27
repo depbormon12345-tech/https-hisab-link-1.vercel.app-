@@ -292,11 +292,14 @@ async function shopRegister(shopName, phone, password) {
         }
       }
 
-      // orphan cleanup
+      // orphan cleanup — কিন্তু _dirty (unsynced) customer কখনো মুছবে না
       Object.keys(localCustomers).forEach(function (cid) {
         if (!remoteIds.has(cid)) {
-          const localUpd = localCustomers[cid]._updatedAt || 0;
-          if (Date.now() - localUpd > 24 * 60 * 60 * 1000) delete localCustomers[cid]; // ৫ মিনিট → ২৪ ঘণ্টা
+          const c = localCustomers[cid];
+          // _dirty মানে এখনো Firebase এ push হয়নি — মুছবে না
+          if (c._dirty) return;
+          const localUpd = c._updatedAt || 0;
+          if (Date.now() - localUpd > 24 * 60 * 60 * 1000) delete localCustomers[cid];
         }
       });
       saveCustomers(localCustomers);
