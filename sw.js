@@ -1,4 +1,4 @@
-const CACHE = 'tally-khata-v1';
+const CACHE = 'tally-khata-v7';
 const ASSETS = ['/', '/index.html', '/firebase-app.js', '/manifest.json'];
 
 self.addEventListener('install', e => {
