@@ -678,7 +678,7 @@ async function shopRegister(shopName, phone, password) {
         showSyncStatus('syncing');
         
         startSubListener();
-      } else if (shopSession) {
+      } else if (shopSession && sessionStorage.getItem('tk_fresh_login') === '1') {
         // Shop session (offline-capable)
         console.log('[AUTH] Shop session:', shopSession.phone);
         resolveAuth(true);
