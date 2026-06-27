@@ -1,5 +1,5 @@
 /* ============================================================
-   হিসাব লেখা — Firebase App Module v5
+   হিসাব লেখা — Firebase App Module v6
    - Google Sign-In (popup)
    - দোকান লগইন: নাম + ফোন + পাসওয়ার্ড (Firestore-backed)
    - Firestore cloud sync (local-first, last-write-wins)
@@ -202,12 +202,11 @@ async function shopRegister(shopName, phone, password) {
           if (typeof renderSubBadge === 'function') renderSubBadge();
           if (localFree) { if (typeof showToast === 'function') showToast('🎉 সাবস্ক্রিপশন Activate হয়েছে!'); }
         } else if (isFreshLogin && remoteExpired) {
-          // Fresh login + expired → customer না থাকলে নতুন trial
-          const custSnap2 = await uref.collection('customers').get();
-          if (custSnap2.empty) {
-            const now = Date.now();
-            saveSub({ expiry: now + 15 * 86400000, plan: 'free', createdAt: now });
-          } else {
+          // Fresh login + expired → আগে paid plan ছিল কিনা চেক করো
+          // যদি আগে paid plan কেনা থাকে তাহলে কখনো trial দেওয়া যাবে না
+          const hadPaidPlan = remote.subscription.plan && remote.subscription.plan !== 'free';
+          if (hadPaidPlan) {
+            // আগে paid ছিল, expired হয়েছে — সেটাই দেখাও, trial না
             saveSub({
               expiry: remote.subscription.expiry,
               plan: remote.subscription.plan,
@@ -215,6 +214,21 @@ async function shopRegister(shopName, phone, password) {
               lastTrx: remote.subscription.lastTrx || local.lastTrx,
               updatedAt: remoteUpd || Date.now()
             });
+          } else {
+            // কখনো paid ছিল না → customer না থাকলে নতুন trial
+            const custSnap2 = await uref.collection('customers').get();
+            if (custSnap2.empty) {
+              const now = Date.now();
+              saveSub({ expiry: now + 15 * 86400000, plan: 'free', createdAt: now });
+            } else {
+              saveSub({
+                expiry: remote.subscription.expiry,
+                plan: remote.subscription.plan,
+                createdAt: remote.subscription.createdAt || local.createdAt,
+                lastTrx: remote.subscription.lastTrx || local.lastTrx,
+                updatedAt: remoteUpd || Date.now()
+              });
+            }
           }
         } else if (remoteUpd >= localUpd) {
           saveSub({
