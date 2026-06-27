@@ -287,11 +287,14 @@ async function shopRegister(shopName, phone, password) {
         }
       }
 
-      // orphan cleanup
+      // orphan cleanup — _dirty customer কখনোই মুছবে না
       Object.keys(localCustomers).forEach(function (cid) {
         if (!remoteIds.has(cid)) {
-          const localUpd = localCustomers[cid]._updatedAt || 0;
-          if (!localCustomers[cid]._dirty && Date.now() - localUpd > 60 * 60 * 1000) delete localCustomers[cid];
+          const c = localCustomers[cid];
+          // _dirty মানে Firebase এ এখনো যায়নি — মুছবো না
+          if (c._dirty) return;
+          // Firebase এ নেই + dirty না = সত্যিকারের orphan, মুছো
+          delete localCustomers[cid];
         }
       });
       saveCustomers(localCustomers);
@@ -817,12 +820,20 @@ async function shopRegister(shopName, phone, password) {
   window.addEventListener('online', function () {
     if (getUid()) {
       showSyncStatus('syncing');
-      pushNow().catch(function(){}).then(function() {
+      // আগে সব dirty data push করো
+      pushNow().then(function(res) {
+        // push সফল হলে pull করো
         return pullFromCloud();
       }).then(function() {
         if (typeof renderList === 'function') renderList();
+        if (typeof renderSubBadge === 'function') renderSubBadge();
         showSyncStatus('online');
-      }).catch(function() { showSyncStatus('offline'); });
+      }).catch(function(e) {
+        console.error('[SYNC] online sync error', e);
+        // error হলেও local data রাখো
+        if (typeof renderList === 'function') renderList();
+        showSyncStatus('offline');
+      });
     }
   });
   window.addEventListener('offline', function () { showSyncStatus('offline'); });
