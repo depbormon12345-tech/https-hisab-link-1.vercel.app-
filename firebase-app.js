@@ -1,5 +1,5 @@
 /* ============================================================
-   হিসাব লেখা — Firebase App Module v6
+   হিসাব লেখা — Firebase App Module v7
    - Google Sign-In (popup)
    - দোকান লগইন: নাম + ফোন + পাসওয়ার্ড (Firestore-backed)
    - Firestore cloud sync (local-first, last-write-wins)
@@ -711,26 +711,8 @@ async function shopRegister(shopName, phone, password) {
     }
 
     window.TKAuth.onAuth(function (user) {
-      if (user) {
-        // Google login
-        console.log('[AUTH] Google:', user.email || user.uid);
-        resolveAuth(true);
-        hideLoginScreen();
-        var phoneEl = document.getElementById('headerPhone');
-        if (phoneEl) phoneEl.textContent = user.email || user.phoneNumber || '';
-        if (typeof renderList === 'function') renderList();
-        if (typeof renderSubBadge === 'function') renderSubBadge();
-        showSyncStatus('syncing');
-        pullFromCloud().then(function (res) {
-          if (typeof renderList === 'function') renderList();
-          if (typeof renderSubBadge === 'function') renderSubBadge();
-          showSyncStatus(res.ok ? 'online' : 'offline');
-        }).catch(function (e) {
-          console.error('[SYNC] pull error:', e);
-          showSyncStatus('offline');
-        });
-        startSubListener();
-      } else if (shopSession) {
+      if (shopSession) {
+        // Shop session — সবসময় priority, Google session এর আগে check করো
         // Shop session — auto-login
         console.log('[AUTH] Shop session:', shopSession.phone);
         resolveAuth(true);
@@ -745,6 +727,25 @@ async function shopRegister(shopName, phone, password) {
           if (typeof renderSubBadge === 'function') renderSubBadge();
           showSyncStatus(res.ok ? 'online' : 'offline');
           if (!res.ok) console.warn('[SYNC] pull failed:', res.reason);
+        }).catch(function (e) {
+          console.error('[SYNC] pull error:', e);
+          showSyncStatus('offline');
+        });
+        startSubListener();
+      } else if (user) {
+        // Google login (shop session নেই)
+        console.log('[AUTH] Google:', user.email || user.uid);
+        resolveAuth(true);
+        hideLoginScreen();
+        var phoneEl = document.getElementById('headerPhone');
+        if (phoneEl) phoneEl.textContent = user.email || user.phoneNumber || '';
+        if (typeof renderList === 'function') renderList();
+        if (typeof renderSubBadge === 'function') renderSubBadge();
+        showSyncStatus('syncing');
+        pullFromCloud().then(function (res) {
+          if (typeof renderList === 'function') renderList();
+          if (typeof renderSubBadge === 'function') renderSubBadge();
+          showSyncStatus(res.ok ? 'online' : 'offline');
         }).catch(function (e) {
           console.error('[SYNC] pull error:', e);
           showSyncStatus('offline');
