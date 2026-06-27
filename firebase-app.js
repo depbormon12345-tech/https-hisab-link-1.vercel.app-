@@ -269,6 +269,10 @@ async function shopRegister(shopName, phone, password) {
         const remoteUpd = tsToMs(data.updatedAt);
         const localUpd  = (local && local._updatedAt) || 0;
 
+        // _dirty মানে local এ নতুন পরিবর্তন আছে যা Firebase এ যায়নি
+        // এই customer কে remote দিয়ে overwrite করবো না
+        if (local && local._dirty) continue;
+
         if (!local || remoteUpd > localUpd) {
           localCustomers[doc.id] = {
             name: data.name, phone: data.phone || '',
@@ -290,10 +294,9 @@ async function shopRegister(shopName, phone, password) {
       // orphan cleanup — _dirty customer কখনোই মুছবে না
       Object.keys(localCustomers).forEach(function (cid) {
         if (!remoteIds.has(cid)) {
-          const c = localCustomers[cid];
           // _dirty মানে Firebase এ এখনো যায়নি — মুছবো না
-          if (c._dirty) return;
-          // Firebase এ নেই + dirty না = সত্যিকারের orphan, মুছো
+          if (localCustomers[cid]._dirty) return;
+          // Firebase এ নেই + dirty না = orphan, মুছো
           delete localCustomers[cid];
         }
       });
