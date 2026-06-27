@@ -951,7 +951,7 @@ function confirmSignOut() {
   showModal(`
     <div class="modal-title">লগআউট করবেন?</div>
     <div class="modal-sub">লগআউট করলে ক্লাউড সিঙ্ক বন্ধ হবে। ডাটা ডিভাইসে থাকবে।</div>
-    <button class="modal-btn danger" onclick="closeModal();if(window.TKAuth)window.TKAuth.signOut().then(()=>location.reload())">হ্যাঁ, লগআউট</button>
+    <button class="modal-btn danger" onclick="closeModal();if(window.TKAuth)window.TKAuth.signOut().then(()=>{localStorage.removeItem('tk_shop_session');sessionStorage.removeItem('tk_fresh_login');location.reload();})">হ্যাঁ, লগআউট</button>
     <button class="modal-btn secondary" onclick="closeModal()">বাতিল</button>
   `);
 }
