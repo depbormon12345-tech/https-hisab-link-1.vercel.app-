@@ -261,13 +261,13 @@ async function shopRegister(shopName, phone, password) {
         }
       }
 
-      // orphan cleanup
-      Object.keys(localCustomers).forEach(function (cid) {
-        if (!remoteIds.has(cid)) {
-          const localUpd = localCustomers[cid]._updatedAt || 0;
-          if (Date.now() - localUpd > 5 * 60 * 1000) delete localCustomers[cid];
-        }
-      });
+      // orphan cleanup disabled — local data delete করবে না
+      // Object.keys(localCustomers).forEach(function (cid) {
+      //   if (!remoteIds.has(cid)) {
+      //     const localUpd = localCustomers[cid]._updatedAt || 0;
+      //     if (Date.now() - localUpd > 5 * 60 * 1000) delete localCustomers[cid];
+      //   }
+      // });
       saveCustomers(localCustomers);
 
       await uref.set({ meta: { lastSync: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
