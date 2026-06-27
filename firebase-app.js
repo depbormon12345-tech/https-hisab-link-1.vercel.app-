@@ -147,25 +147,7 @@ async function shopRegister(shopName, phone, password) {
       return firebase.auth().onAuthStateChanged(cb);
     },
 
-    getShopSession: _getShopSession
-  };
-
-  // ── FIRESTORE SYNC ───────────────────────────────────────────
-  function tsToMs(ts) {
-    if (!ts) return 0;
-    if (ts && typeof ts.toMillis === 'function') return ts.toMillis();
-    if (typeof ts === 'number') return ts;
-    return 0;
-  }
-   signOut: async function () {
-  await pushNow();
-  sessionStorage.removeItem('tk_fresh_login');
-  _clearShopSession();
-  if (firebase.auth().currentUser) {
-    return firebase.auth().signOut();
-  }
-  window.dispatchEvent(new Event('tk-shop-signout'));
-},
+    getShopSession: _getShopSession,
 
   function getUid() {
     const u = firebase.auth().currentUser;
