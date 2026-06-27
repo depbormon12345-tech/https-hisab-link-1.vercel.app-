@@ -180,27 +180,38 @@ async function shopRegister(shopName, phone, password) {
 
       if (remote && remote.shop) saveShop(remote.shop);
 
-      // subscription — server wins, but new accounts always get fresh trial
+      // subscription — remote paid plan সবসময় জিতবে
       if (remote && remote.subscription && remote.subscription.expiry) {
         const local = getSub();
         const remoteUpd = tsToMs(remote.subscription.updatedAt);
         const localUpd  = local.updatedAt || 0;
-        const isFreshLogin = sessionStorage.getItem('tk_fresh_login') === '1';
+        const remotePaid = remote.subscription.plan && remote.subscription.plan !== 'free';
+        const localFree  = !local.plan || local.plan === 'free';
         const remoteExpired = remote.subscription.expiry < Date.now();
+        const isFreshLogin = sessionStorage.getItem('tk_fresh_login') === '1';
 
-        // If fresh login AND remote subscription is expired AND no customers yet → give new trial
-        if (isFreshLogin && remoteExpired) {
+        // Remote paid → সবসময় save করো (badge ঠিক করার মূল fix)
+        if (remotePaid && !remoteExpired) {
+          saveSub({
+            expiry: remote.subscription.expiry,
+            plan: remote.subscription.plan,
+            createdAt: remote.subscription.createdAt || local.createdAt,
+            lastTrx: remote.subscription.lastTrx || local.lastTrx,
+            updatedAt: remoteUpd || Date.now()
+          });
+        } else if (isFreshLogin && remoteExpired) {
+          // Fresh login + expired → customer না থাকলে নতুন trial
           const custSnap2 = await uref.collection('customers').get();
           if (custSnap2.empty) {
             const now = Date.now();
             saveSub({ expiry: now + 15 * 86400000, plan: 'free', createdAt: now });
-          } else if (remoteUpd >= localUpd) {
+          } else {
             saveSub({
               expiry: remote.subscription.expiry,
               plan: remote.subscription.plan,
               createdAt: remote.subscription.createdAt || local.createdAt,
               lastTrx: remote.subscription.lastTrx || local.lastTrx,
-              updatedAt: remoteUpd
+              updatedAt: remoteUpd || Date.now()
             });
           }
         } else if (remoteUpd >= localUpd) {
@@ -209,7 +220,7 @@ async function shopRegister(shopName, phone, password) {
             plan: remote.subscription.plan,
             createdAt: remote.subscription.createdAt || local.createdAt,
             lastTrx: remote.subscription.lastTrx || local.lastTrx,
-            updatedAt: remoteUpd
+            updatedAt: remoteUpd || Date.now()
           });
         }
       } else if (!remote || !remote.subscription) {
