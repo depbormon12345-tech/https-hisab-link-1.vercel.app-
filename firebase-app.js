@@ -1,5 +1,5 @@
 /* ============================================================
-   হিসাব লেখা — Firebase App Module v8
+   হিসাব লেখা — Firebase App Module v10
    - Google Sign-In (popup)
    - দোকান লগইন: নাম + ফোন + পাসওয়ার্ড (Firestore-backed)
    - Firestore cloud sync (local-first, last-write-wins)
@@ -170,6 +170,15 @@ async function shopRegister(shopName, phone, password) {
     return window.db.collection('users').doc(uid);
   }
 
+  // Firestore Timestamp বা plain number → milliseconds
+  function tsToMs(v) {
+    if (!v) return 0;
+    if (typeof v === 'number') return v;
+    if (v && typeof v.toMillis === 'function') return v.toMillis();
+    if (v && v.seconds) return v.seconds * 1000;
+    return 0;
+  }
+
   async function pullFromCloud() {
     const uid = getUid();
     if (!uid) return { ok: false, reason: 'no-user' };
@@ -187,13 +196,14 @@ async function shopRegister(shopName, phone, password) {
         const localUpd  = local.updatedAt || 0;
         const remotePaid = remote.subscription.plan && remote.subscription.plan !== 'free';
         const localFree  = !local.plan || local.plan === 'free';
-        const remoteExpired = remote.subscription.expiry < Date.now();
+        const remoteExpiry = tsToMs(remote.subscription.expiry) || remote.subscription.expiry;
+        const remoteExpired = remoteExpiry < Date.now();
         const isFreshLogin = sessionStorage.getItem('tk_fresh_login') === '1';
 
         // Remote paid → সবসময় save করো (badge ঠিক করার মূল fix)
         if (remotePaid && !remoteExpired) {
           saveSub({
-            expiry: remote.subscription.expiry,
+            expiry: remoteExpiry,
             plan: remote.subscription.plan,
             createdAt: remote.subscription.createdAt || local.createdAt,
             lastTrx: remote.subscription.lastTrx || local.lastTrx,
