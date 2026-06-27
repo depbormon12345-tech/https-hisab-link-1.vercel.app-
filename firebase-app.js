@@ -152,6 +152,11 @@ async function shopRegister(shopName, phone, password) {
     signOut: async function () {
       _clearShopSession();
       sessionStorage.removeItem('tk_fresh_login');
+      // লগআউটে সব local customer ডেটা মুছে দাও
+      localStorage.removeItem('tk2_customers');
+      localStorage.removeItem('tk2_deleted');
+      const txKeys = Object.keys(localStorage).filter(k => k.startsWith('tk2_tx_'));
+      txKeys.forEach(k => localStorage.removeItem(k));
       try { await firebase.auth().signOut(); } catch (e) {}
     }
   };
@@ -291,7 +296,7 @@ async function shopRegister(shopName, phone, password) {
       Object.keys(localCustomers).forEach(function (cid) {
         if (!remoteIds.has(cid)) {
           const localUpd = localCustomers[cid]._updatedAt || 0;
-          if (Date.now() - localUpd > 5 * 60 * 1000) delete localCustomers[cid];
+          if (Date.now() - localUpd > 24 * 60 * 60 * 1000) delete localCustomers[cid]; // ৫ মিনিট → ২৪ ঘণ্টা
         }
       });
       saveCustomers(localCustomers);
@@ -300,6 +305,11 @@ async function shopRegister(shopName, phone, password) {
       return { ok: true, customers: custSnap.size };
     } catch (e) {
       console.error('[SYNC] pull error', e);
+      // Offline বা Firebase error হলে local data মুছবে না
+      if (e.code === 'unavailable' || e.message.includes('offline') || e.message.includes('network')) {
+        console.warn('[SYNC] Offline mode - keeping local data intact');
+        return { ok: false, reason: 'offline', localDataKept: true };
+      }
       return { ok: false, reason: e.message };
     }
   }
@@ -307,8 +317,14 @@ async function shopRegister(shopName, phone, password) {
   let pushTimer = null, pushing = false;
   function schedulePush() {
     if (pushTimer) return;
+    // অফলাইনে থাকলে push করার দরকার নেই - online হলে auto push হবে
+    if (!navigator.onLine) {
+      console.log('[SYNC] Offline — push queued for when online');
+      return;
+    }
     pushTimer = setTimeout(function () {
       pushTimer = null;
+      if (!navigator.onLine) return; // double check
       pushNow().catch(function (e) { console.error('[SYNC] push', e); });
     }, 1500);
   }
@@ -354,11 +370,13 @@ async function shopRegister(shopName, phone, password) {
         }
         saveTxs(cid, txs.map(function (t) { const x = Object.assign({}, t); delete x._dirty; return x; }));
       }
+      // শুধু সফলভাবে push হলেই _dirty মুছো
       const freshC = {};
       Object.keys(customers).forEach(function (cid) {
         const c = Object.assign({}, customers[cid]); delete c._dirty; freshC[cid] = c;
       });
-      saveCustomers(freshC);
+      // saveCustomers hook এড়িয়ে সরাসরি localStorage এ সেভ (loop এড়াতে)
+      try { localStorage.setItem('tk2_customers', JSON.stringify(freshC)); } catch(e) {}
 
       const deleted = JSON.parse(localStorage.getItem('tk2_deleted') || '[]');
       if (deleted.length) {
@@ -367,8 +385,18 @@ async function shopRegister(shopName, phone, password) {
         }
         localStorage.removeItem('tk2_deleted');
       }
-      console.log('[SYNC] pushed', dirtyIds.length);
-    } catch (e) { console.error('[SYNC] push failed', e); }
+      console.log('[SYNC] pushed', dirtyIds.length, 'customers');
+      return { ok: true };
+    } catch (e) {
+      console.error('[SYNC] push failed', e);
+      // ❌ _dirty flag রেখে দাও — পরে অনলাইন হলে আবার try করবে
+      // schedulePush দিয়ে retry করো
+      if (navigator.onLine) {
+        // অনলাইন কিন্তু error — ৫ সেকেন্ড পর retry
+        setTimeout(function() { schedulePush(); }, 5000);
+      }
+      return { ok: false, reason: e.message };
+    }
     finally { pushing = false; }
   }
 
@@ -802,7 +830,18 @@ async function shopRegister(shopName, phone, password) {
   window.addEventListener('online', function () {
     if (getUid()) {
       showSyncStatus('syncing');
-      pushNow().then(function () { showSyncStatus('online'); });
+      // অনলাইন হলে প্রথমে dirty data push করো, তারপর cloud থেকে pull করো
+      pushNow().then(function(res) {
+        return pullFromCloud();
+      }).then(function() {
+        showSyncStatus('online');
+        // পেজ refresh না করে UI আপডেট করো
+        if (typeof window.renderList === 'function') window.renderList();
+        if (typeof window.appReady === 'function') window.appReady();
+      }).catch(function(e) {
+        console.error('[SYNC] online sync error', e);
+        showSyncStatus('offline');
+      });
     }
   });
   window.addEventListener('offline', function () { showSyncStatus('offline'); });
