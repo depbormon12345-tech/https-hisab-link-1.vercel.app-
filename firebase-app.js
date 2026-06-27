@@ -152,11 +152,6 @@ async function shopRegister(shopName, phone, password) {
     signOut: async function () {
       _clearShopSession();
       sessionStorage.removeItem('tk_fresh_login');
-      // লগআউটে সব local customer ডেটা মুছে দাও
-      localStorage.removeItem('tk2_customers');
-      localStorage.removeItem('tk2_deleted');
-      const txKeys = Object.keys(localStorage).filter(k => k.startsWith('tk2_tx_'));
-      txKeys.forEach(k => localStorage.removeItem(k));
       try { await firebase.auth().signOut(); } catch (e) {}
     }
   };
@@ -215,7 +210,7 @@ async function shopRegister(shopName, phone, password) {
             updatedAt: remoteUpd || Date.now()
           });
           if (typeof renderSubBadge === 'function') renderSubBadge();
-          if (localFree) { if (typeof showToast === 'function') showToast('🎉 সাবস্ক্রিপশন Activate হয়েছে!'); }
+          if (localFree) { if (typeof showToast === 'function') showToast('🎉 প্রিমিয়াম Activate হয়েছে!'); }
         } else if (isFreshLogin && remoteExpired) {
           // Fresh login + expired → আগে paid plan ছিল কিনা চেক করো
           // যদি আগে paid plan কেনা থাকে তাহলে কখনো trial দেওয়া যাবে না
@@ -292,29 +287,19 @@ async function shopRegister(shopName, phone, password) {
         }
       }
 
-      // orphan cleanup — কিন্তু _dirty (unsynced) customer কখনো মুছবে না
+      // orphan cleanup
       Object.keys(localCustomers).forEach(function (cid) {
         if (!remoteIds.has(cid)) {
-          const c = localCustomers[cid];
-          // _dirty মানে এখনো Firebase এ push হয়নি — মুছবে না
-          if (c._dirty) return;
-          const localUpd = c._updatedAt || 0;
-          if (Date.now() - localUpd > 24 * 60 * 60 * 1000) delete localCustomers[cid];
+          const localUpd = localCustomers[cid]._updatedAt || 0;
+          if (!localCustomers[cid]._dirty && Date.now() - localUpd > 60 * 60 * 1000) delete localCustomers[cid];
         }
       });
       saveCustomers(localCustomers);
-      // Cloud থেকে data আসার পর UI আপডেট করো
-      if (typeof window.renderList === 'function') window.renderList();
 
       await uref.set({ meta: { lastSync: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
       return { ok: true, customers: custSnap.size };
     } catch (e) {
       console.error('[SYNC] pull error', e);
-      // Offline বা Firebase error হলে local data মুছবে না
-      if (e.code === 'unavailable' || e.message.includes('offline') || e.message.includes('network')) {
-        console.warn('[SYNC] Offline mode - keeping local data intact');
-        return { ok: false, reason: 'offline', localDataKept: true };
-      }
       return { ok: false, reason: e.message };
     }
   }
@@ -322,14 +307,8 @@ async function shopRegister(shopName, phone, password) {
   let pushTimer = null, pushing = false;
   function schedulePush() {
     if (pushTimer) return;
-    // অফলাইনে থাকলে push করার দরকার নেই - online হলে auto push হবে
-    if (!navigator.onLine) {
-      console.log('[SYNC] Offline — push queued for when online');
-      return;
-    }
     pushTimer = setTimeout(function () {
       pushTimer = null;
-      if (!navigator.onLine) return; // double check
       pushNow().catch(function (e) { console.error('[SYNC] push', e); });
     }, 1500);
   }
@@ -343,17 +322,28 @@ async function shopRegister(shopName, phone, password) {
       const uref = window.db.collection('users').doc(uid);
       const shop = getShop(), sub = getSub();
 
-      // paid plan কে কখনো overwrite করবো না — local paid থাকলে Firestore এও paid রাখো
-      const isPaidLocal = sub.plan && sub.plan !== 'free' && sub.expiry && sub.expiry > Date.now();
-      await uref.set({
-        shop: shop,
-        subscription: {
-          expiry: sub.expiry || null, plan: sub.plan || null,
-          createdAt: sub.createdAt || null, lastTrx: sub.lastTrx || null,
-          updatedAt: isPaidLocal ? firebase.firestore.FieldValue.serverTimestamp() : (firebase.firestore.FieldValue.serverTimestamp())
-        },
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+      // local free হলে Firebase এর subscription কখনো overwrite করবো না
+      const isLocalPaid = sub.plan && sub.plan !== 'free' && sub.expiry && sub.expiry > Date.now();
+      const isLocalFree = !isLocalPaid;
+
+      if (isLocalPaid) {
+        // local paid → Firebase এও paid রাখো
+        await uref.set({
+          shop: shop,
+          subscription: {
+            expiry: sub.expiry || null, plan: sub.plan || null,
+            createdAt: sub.createdAt || null, lastTrx: sub.lastTrx || null,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          },
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } else {
+        // local free → subscription field ছুঁবো না, শুধু shop আপডেট করো
+        await uref.set({
+          shop: shop,
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      }
 
       const customers = getCustomers();
       const dirtyIds = Object.keys(customers).filter(function (cid) { return customers[cid]._dirty; });
@@ -375,15 +365,11 @@ async function shopRegister(shopName, phone, password) {
         }
         saveTxs(cid, txs.map(function (t) { const x = Object.assign({}, t); delete x._dirty; return x; }));
       }
-      // শুধু সফলভাবে push হলেই _dirty মুছো
       const freshC = {};
       Object.keys(customers).forEach(function (cid) {
         const c = Object.assign({}, customers[cid]); delete c._dirty; freshC[cid] = c;
       });
-      // saveCustomers hook এড়িয়ে সরাসরি localStorage এ সেভ (loop এড়াতে)
-      try { localStorage.setItem('tk2_customers', JSON.stringify(freshC)); } catch(e) {}
-      // UI আপডেট করো
-      if (typeof window.renderList === 'function') window.renderList();
+      saveCustomers(freshC);
 
       const deleted = JSON.parse(localStorage.getItem('tk2_deleted') || '[]');
       if (deleted.length) {
@@ -392,18 +378,8 @@ async function shopRegister(shopName, phone, password) {
         }
         localStorage.removeItem('tk2_deleted');
       }
-      console.log('[SYNC] pushed', dirtyIds.length, 'customers');
-      return { ok: true };
-    } catch (e) {
-      console.error('[SYNC] push failed', e);
-      // ❌ _dirty flag রেখে দাও — পরে অনলাইন হলে আবার try করবে
-      // schedulePush দিয়ে retry করো
-      if (navigator.onLine) {
-        // অনলাইন কিন্তু error — ৫ সেকেন্ড পর retry
-        setTimeout(function() { schedulePush(); }, 5000);
-      }
-      return { ok: false, reason: e.message };
-    }
+      console.log('[SYNC] pushed', dirtyIds.length);
+    } catch (e) { console.error('[SYNC] push failed', e); }
     finally { pushing = false; }
   }
 
@@ -684,10 +660,7 @@ async function shopRegister(shopName, phone, password) {
     if (typeof renderList === 'function') renderList();
     if (typeof renderSubBadge === 'function') renderSubBadge();
     showSyncStatus('syncing');
-    // আগে dirty data push করো, তারপর pull করো
-    pushNow().catch(function(){}).then(function() {
-      return pullFromCloud();
-    }).then(function (res) {
+    pullFromCloud().then(function (res) {
       if (typeof renderList === 'function') renderList();
       if (typeof renderSubBadge === 'function') renderSubBadge();
       showSyncStatus(res.ok ? 'online' : 'offline');
@@ -770,7 +743,6 @@ async function shopRegister(shopName, phone, password) {
         if (typeof renderList === 'function') renderList();
         if (typeof renderSubBadge === 'function') renderSubBadge();
         showSyncStatus('syncing');
-        // আগে dirty data push করো, তারপর pull করো
         pushNow().catch(function(){}).then(function() {
           return pullFromCloud();
         }).then(function (res) {
@@ -793,7 +765,6 @@ async function shopRegister(shopName, phone, password) {
         if (typeof renderList === 'function') renderList();
         if (typeof renderSubBadge === 'function') renderSubBadge();
         showSyncStatus('syncing');
-        // আগে dirty data push করো, তারপর pull করো
         pushNow().catch(function(){}).then(function() {
           return pullFromCloud();
         }).then(function (res) {
@@ -846,18 +817,12 @@ async function shopRegister(shopName, phone, password) {
   window.addEventListener('online', function () {
     if (getUid()) {
       showSyncStatus('syncing');
-      // অনলাইন হলে প্রথমে dirty data push করো, তারপর cloud থেকে pull করো
-      pushNow().then(function(res) {
+      pushNow().catch(function(){}).then(function() {
         return pullFromCloud();
       }).then(function() {
+        if (typeof renderList === 'function') renderList();
         showSyncStatus('online');
-        // পেজ refresh না করে UI আপডেট করো
-        if (typeof window.renderList === 'function') window.renderList();
-        if (typeof window.appReady === 'function') window.appReady();
-      }).catch(function(e) {
-        console.error('[SYNC] online sync error', e);
-        showSyncStatus('offline');
-      });
+      }).catch(function() { showSyncStatus('offline'); });
     }
   });
   window.addEventListener('offline', function () { showSyncStatus('offline'); });
