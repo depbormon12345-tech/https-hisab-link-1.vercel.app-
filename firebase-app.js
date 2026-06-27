@@ -259,7 +259,9 @@ async function shopRegister(shopName, phone, password) {
       }
 
       const custSnap = await uref.collection('customers').get();
-      const localCustomers = getCustomers();
+      // সরাসরি localStorage থেকে পড়ো — hooked version এড়াতে
+      let localCustomers = {};
+      try { localCustomers = JSON.parse(localStorage.getItem('tk2_customers') || '{}'); } catch(e) {}
       const remoteIds = new Set();
 
       for (const doc of custSnap.docs) {
@@ -270,7 +272,7 @@ async function shopRegister(shopName, phone, password) {
         const localUpd  = (local && local._updatedAt) || 0;
 
         // _dirty মানে local এ নতুন পরিবর্তন আছে যা Firebase এ যায়নি
-        // এই customer কে remote দিয়ে overwrite করবো না
+        // এই customer কে remote দিয়ে কখনো overwrite করবো না
         if (local && local._dirty) continue;
 
         if (!local || remoteUpd > localUpd) {
@@ -287,20 +289,22 @@ async function shopRegister(shopName, phone, password) {
               note: x.note || '', ts: x.ts || x.at || Date.now(),
               balanceAfter: x.balanceAfter || 0 };
           });
-          saveTxs(doc.id, remoteTx);
+          // tx সরাসরি localStorage এ সেভ করো
+          try { localStorage.setItem('tk2_tx_' + doc.id, JSON.stringify(remoteTx)); } catch(e) {}
         }
       }
 
       // orphan cleanup — _dirty customer কখনোই মুছবে না
       Object.keys(localCustomers).forEach(function (cid) {
         if (!remoteIds.has(cid)) {
-          // _dirty মানে Firebase এ এখনো যায়নি — মুছবো না
-          if (localCustomers[cid]._dirty) return;
-          // Firebase এ নেই + dirty না = orphan, মুছো
+          if (localCustomers[cid]._dirty) return; // dirty = Firebase এ যায়নি, রাখো
           delete localCustomers[cid];
         }
       });
-      saveCustomers(localCustomers);
+      // সরাসরি localStorage এ সেভ — hook trigger করবে না
+      try { localStorage.setItem('tk2_customers', JSON.stringify(localCustomers)); } catch(e) {}
+      // UI আপডেট করো
+      if (typeof window.renderList === 'function') window.renderList();
 
       await uref.set({ meta: { lastSync: firebase.firestore.FieldValue.serverTimestamp() } }, { merge: true });
       return { ok: true, customers: custSnap.size };
