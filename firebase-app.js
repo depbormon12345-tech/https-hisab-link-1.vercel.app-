@@ -1,5 +1,5 @@
 /* ============================================================
-   হিসাব লেখা — Firebase App Module v4
+   হিসাব লেখা — Firebase App Module v5
    - Google Sign-In (popup)
    - দোকান লগইন: নাম + ফোন + পাসওয়ার্ড (Firestore-backed)
    - Firestore cloud sync (local-first, last-write-wins)
@@ -199,6 +199,8 @@ async function shopRegister(shopName, phone, password) {
             lastTrx: remote.subscription.lastTrx || local.lastTrx,
             updatedAt: remoteUpd || Date.now()
           });
+          if (typeof renderSubBadge === 'function') renderSubBadge();
+          if (localFree) { if (typeof showToast === 'function') showToast('🎉 সাবস্ক্রিপশন Activate হয়েছে!'); }
         } else if (isFreshLogin && remoteExpired) {
           // Fresh login + expired → customer না থাকলে নতুন trial
           const custSnap2 = await uref.collection('customers').get();
@@ -296,12 +298,14 @@ async function shopRegister(shopName, phone, password) {
       const uref = window.db.collection('users').doc(uid);
       const shop = getShop(), sub = getSub();
 
+      // paid plan কে কখনো overwrite করবো না — local paid থাকলে Firestore এও paid রাখো
+      const isPaidLocal = sub.plan && sub.plan !== 'free' && sub.expiry && sub.expiry > Date.now();
       await uref.set({
         shop: shop,
         subscription: {
           expiry: sub.expiry || null, plan: sub.plan || null,
           createdAt: sub.createdAt || null, lastTrx: sub.lastTrx || null,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          updatedAt: isPaidLocal ? firebase.firestore.FieldValue.serverTimestamp() : (firebase.firestore.FieldValue.serverTimestamp())
         },
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
@@ -648,7 +652,7 @@ async function shopRegister(shopName, phone, password) {
           // সবসময় update করো যদি remote plan paid হয় অথবা remote নতুন হয়
           const remotePaid = remote.plan && remote.plan !== 'free';
           const localFree  = !local.plan || local.plan === 'free';
-          if (remoteUpd > localUpd || (remotePaid && localFree)) {
+          if (remoteUpd > localUpd || remotePaid) {
             saveSub({
               expiry: remote.expiry,
               plan: remote.plan,
