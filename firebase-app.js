@@ -1,5 +1,5 @@
 /* ============================================================
-   হিসাব লেখা — Firebase App Module v7
+   হিসাব লেখা — Firebase App Module v8
    - Google Sign-In (popup)
    - দোকান লগইন: নাম + ফোন + পাসওয়ার্ড (Firestore-backed)
    - Firestore cloud sync (local-first, last-write-wins)
@@ -726,7 +726,7 @@ async function shopRegister(shopName, phone, password) {
           if (typeof renderList === 'function') renderList();
           if (typeof renderSubBadge === 'function') renderSubBadge();
           showSyncStatus(res.ok ? 'online' : 'offline');
-          if (!res.ok) console.warn('[SYNC] pull failed:', res.reason);
+          if (!res.ok) { console.warn('[SYNC] pull failed:', res.reason); if (typeof showToast === 'function') showToast('Sync error: ' + res.reason); }
         }).catch(function (e) {
           console.error('[SYNC] pull error:', e);
           showSyncStatus('offline');
