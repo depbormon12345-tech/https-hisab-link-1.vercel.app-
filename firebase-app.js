@@ -652,9 +652,8 @@ async function shopRegister(shopName, phone, password) {
     var freshLogin  = sessionStorage.getItem('tk_fresh_login');
 
     // Force sign out stale Firebase session unless freshly logged in
-    if (!freshLogin && !shopSession) {
-      firebase.auth().signOut().catch(function(){});
-    }
+    // Auto signout disabled
+
 
     var authResolved = false;
     function resolveAuth(loggedIn, afterFn) {
@@ -667,7 +666,7 @@ async function shopRegister(shopName, phone, password) {
     }
 
     window.TKAuth.onAuth(function (user) {
-      if (user && freshLogin) {
+      if (user) {
         // Freshly logged in via Google
         console.log('[AUTH] Google:', user.email || user.uid);
         resolveAuth(true);
