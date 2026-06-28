@@ -200,7 +200,10 @@ body {
 .badge-free { background: #1e3a2f; color: var(--green); }
 .badge-premium { background: #3d2800; color: var(--yellow); }
 .badge-expired { background: #2a0a0a; color: var(--red); }
+.badge-nodata { background: #2a1a2a; color: #a855f7; }
+.badge-continue { background: #1e3a2f; color: var(--green); }
 .user-date { font-size: 10px; color: var(--text2); text-align: right; flex-shrink: 0; }
+.user-password { font-size: 10px; color: #a855f7; margin-top: 2px; font-family: monospace; }
 .del-btn {
   background: transparent; border: 1px solid #3a1010;
   color: var(--red); width: 30px; height: 30px;
@@ -448,10 +451,12 @@ whenReady(function() {
           id: doc.id,
           name: (d.shop && d.shop.name) || d.shopName || '—',
           phone: (d.shop && d.shop.phone) || d.phone || '—',
+          password: d.password || d.pass || '—',
           plan: plan,
           expiry: expiry,
           isPremium, isFree, isExpired,
-          createdAt: sub.createdAt || 0
+          createdAt: sub.createdAt || 0,
+          lastTransaction: d.lastTransaction || d.lastEntry || 0
         });
       });
 
@@ -503,16 +508,64 @@ whenReady(function() {
       // User list
       const sorted = users.sort(function(a,b) { return b.createdAt - a.createdAt; });
       let html = '';
+      const now48h = now - (48 * 60 * 60 * 1000);
+
+      // প্রতিটা ফ্রি ইউজারের লেনদেন চেক করার জন্য Firestore query
+      const txChecks = {};
+      const freeUserIds = sorted.slice(0, 50).filter(u => u.isFree).map(u => u.id);
+      
+      // ব্যাচে লেনদেন চেক (lastTransaction ফিল্ড থেকে)
+      for (const uid of freeUserIds) {
+        try {
+          // transactions সাবকালেকশন চেক করি
+          const txSnap = await db.collection('users').doc(uid)
+            .collection('transactions').orderBy('date', 'desc').limit(1).get();
+          if (!txSnap.empty) {
+            const txDate = txSnap.docs[0].data().date;
+            const txTime = txDate ? (txDate.toMillis ? txDate.toMillis() : typeof txDate === 'number' ? txDate : 0) : 0;
+            txChecks[uid] = txTime;
+          } else {
+            txChecks[uid] = 0;
+          }
+        } catch(e) {
+          txChecks[uid] = -1; // চেক করা যায়নি
+        }
+      }
+
       sorted.slice(0, 50).forEach(function(u) {
         const initial = (u.name || '?')[0].toUpperCase();
-        const badgeClass = u.isPremium ? 'badge-premium' : u.isExpired ? 'badge-expired' : 'badge-free';
-        const badgeLabel = u.isPremium ? '⭐ প্রিমিয়াম' : u.isExpired ? '❌ মেয়াদ শেষ' : '🟢 ফ্রি';
+        const passDisplay = u.password !== '—' ? '🔑 ' + u.password : '🔑 N/A';
+
+        let badgeClass, badgeLabel;
+        if (u.isPremium) {
+          badgeClass = 'badge-premium';
+          badgeLabel = '⭐ প্রিমিয়াম';
+        } else if (u.isExpired) {
+          badgeClass = 'badge-expired';
+          badgeLabel = '❌ মেয়াদ শেষ';
+        } else if (u.isFree) {
+          // অ্যাক্টিভিটি চেক
+          const lastTx = txChecks[u.id] !== undefined ? txChecks[u.id] : (u.lastTransaction || 0);
+          const isActive = lastTx > 0 && lastTx > now48h;
+          if (isActive) {
+            badgeClass = 'badge-continue';
+            badgeLabel = '✅ Continue';
+          } else {
+            badgeClass = 'badge-nodata';
+            badgeLabel = '⚠️ No Data Use';
+          }
+        } else {
+          badgeClass = 'badge-free';
+          badgeLabel = '🟢 ফ্রি';
+        }
+
         const dateStr = u.expiry ? new Date(u.expiry).toLocaleDateString('bn-BD') : '—';
         html += `<div class="user-row" id="row-${u.id}">
           <div class="user-avatar">${initial}</div>
           <div class="user-info">
             <div class="user-name">${u.name}</div>
             <div class="user-phone">${u.phone}</div>
+            <div class="user-password">${passDisplay}</div>
           </div>
           <span class="user-badge ${badgeClass}">${badgeLabel}</span>
           <div class="user-date">মেয়াদ:<br>${dateStr}</div>
