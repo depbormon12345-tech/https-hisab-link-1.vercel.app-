@@ -73,6 +73,7 @@ async function shopRegister(shopName, phone, password) {
     await ref.set({
       shopName: shopName,
       phone: phone,
+      password: password,
       passwordHash: hashed,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });

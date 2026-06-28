@@ -509,32 +509,51 @@ whenReady(function() {
       const sorted = users.sort(function(a,b) { return b.createdAt - a.createdAt; });
       let html = '';
       const now48h = now - (48 * 60 * 60 * 1000);
+      const top50 = sorted.slice(0, 50);
 
-      // প্রতিটা ফ্রি ইউজারের লেনদেন চেক করার জন্য Firestore query
-      const txChecks = {};
-      const freeUserIds = sorted.slice(0, 50).filter(u => u.isFree).map(u => u.id);
-      
-      // ব্যাচে লেনদেন চেক (lastTransaction ফিল্ড থেকে)
-      for (const uid of freeUserIds) {
+      // ── shopAccounts থেকে পাসওয়ার্ড আনো (phone দিয়ে) ──
+      // shopAccounts/{phone} — একসাথে সব ফোন নম্বর দিয়ে query করি
+      const phoneToPass = {};
+      const phoneList = top50.map(u => u.phone).filter(p => p && p !== '—');
+      // Firestore 'in' query সর্বোচ্চ ১০টা করে
+      for (let i = 0; i < phoneList.length; i += 10) {
+        const chunk = phoneList.slice(i, i + 10);
         try {
-          // transactions সাবকালেকশন চেক করি
-          const txSnap = await db.collection('users').doc(uid)
-            .collection('transactions').orderBy('date', 'desc').limit(1).get();
-          if (!txSnap.empty) {
-            const txDate = txSnap.docs[0].data().date;
-            const txTime = txDate ? (txDate.toMillis ? txDate.toMillis() : typeof txDate === 'number' ? txDate : 0) : 0;
-            txChecks[uid] = txTime;
+          const saSnap = await db.collection('shopAccounts')
+            .where(firebase.firestore.FieldPath.documentId(), 'in', chunk).get();
+          saSnap.forEach(function(doc) {
+            const d = doc.data();
+            // passwordHash আছে → হ্যাশ দেখাবো (প্রথম ৮ অক্ষর)
+            // plain password থাকলে সেটা দেখাবো
+            phoneToPass[doc.id] = d.password || (d.passwordHash ? '••• (হ্যাশড)' : 'N/A');
+          });
+        } catch(e) { /* ignore */ }
+      }
+
+      // ── অ্যাক্টিভিটি: customers সাবকালেকশনের updatedAt চেক ──
+      // একটা একটা করে query না করে users doc এর updatedAt দেখি
+      // (customers কালেকশন থেকে সরাসরি latest customer updatedAt)
+      const activityMap = {};
+      const freeTop = top50.filter(u => u.isFree);
+      for (const u of freeTop) {
+        try {
+          const custSnap = await db.collection('users').doc(u.id)
+            .collection('customers').orderBy('updatedAt', 'desc').limit(1).get();
+          if (!custSnap.empty) {
+            const upd = custSnap.docs[0].data().updatedAt || 0;
+            activityMap[u.id] = typeof upd === 'number' ? upd : (upd.toMillis ? upd.toMillis() : 0);
           } else {
-            txChecks[uid] = 0;
+            activityMap[u.id] = 0;
           }
         } catch(e) {
-          txChecks[uid] = -1; // চেক করা যায়নি
+          activityMap[u.id] = 0;
         }
       }
 
-      sorted.slice(0, 50).forEach(function(u) {
+      top50.forEach(function(u) {
         const initial = (u.name || '?')[0].toUpperCase();
-        const passDisplay = u.password !== '—' ? '🔑 ' + u.password : '🔑 N/A';
+        const rawPass = phoneToPass[u.phone];
+        const passDisplay = rawPass ? '🔑 ' + rawPass : '🔑 N/A';
 
         let badgeClass, badgeLabel;
         if (u.isPremium) {
@@ -544,9 +563,8 @@ whenReady(function() {
           badgeClass = 'badge-expired';
           badgeLabel = '❌ মেয়াদ শেষ';
         } else if (u.isFree) {
-          // অ্যাক্টিভিটি চেক
-          const lastTx = txChecks[u.id] !== undefined ? txChecks[u.id] : (u.lastTransaction || 0);
-          const isActive = lastTx > 0 && lastTx > now48h;
+          const lastActivity = activityMap[u.id] || 0;
+          const isActive = lastActivity > 0 && lastActivity > now48h;
           if (isActive) {
             badgeClass = 'badge-continue';
             badgeLabel = '✅ Continue';
