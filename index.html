@@ -14,6 +14,7 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js"></script>
 <script defer src="firebase-app.js?v=4"></script>
 <style>
 :root {
@@ -1591,6 +1592,83 @@ showView('homeView');
 renderList();
 renderSubBadge();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+// ── মেয়াদ শেষের নোটিফিকেশন চেকার ────────────────────────────
+(function scheduleExpiryNotifications() {
+  // প্রতিদিন একবার চেক করবে
+  const LAST_CHECK_KEY = 'tk_notif_last_check';
+  const now = Date.now();
+  const lastCheck = parseInt(localStorage.getItem(LAST_CHECK_KEY) || '0');
+  const ONE_DAY = 24 * 60 * 60 * 1000;
+
+  // ২৪ ঘন্টার আগে আবার চেক করবে না
+  if (now - lastCheck < ONE_DAY) return;
+
+  window.addEventListener('firebase-ready', async function() {
+    try {
+      // Subscription ডাটা আনো
+      const session = JSON.parse(localStorage.getItem('tk_shop_session') || 'null');
+      if (!session || !session.phone) return;
+
+      const uid = 'shop_' + session.phone;
+      const userDoc = await window.db.collection('users').doc(uid).get();
+      if (!userDoc.exists) return;
+
+      const sub = userDoc.data().subscription || {};
+      const expiry = sub.expiry || 0;
+      if (!expiry) return;
+
+      const daysLeft = Math.ceil((expiry - now) / ONE_DAY);
+      const plan = sub.plan || 'free';
+
+      // ১ বা ২ দিন বাকি থাকলে নোটিফিকেশন
+      if (daysLeft === 2 || daysLeft === 1) {
+        if (Notification.permission !== 'granted') return;
+
+        // দিন অনুযায়ী কতটা নোটিফিকেশন
+        const isFree = plan === 'free';
+        const title = isFree
+          ? '🎉 হিসাব লেখা — ফ্রি ট্রায়াল'
+          : '💛 হিসাব লেখা — প্রিমিয়াম';
+
+        const msgs = daysLeft === 2 ? [
+          isFree
+            ? `স্যার, আপনি দারুণভাবে হিসাব গুছিয়ে নিচ্ছেন! ট্রায়াল শেষ হওয়ার আগেই সাবস্ক্রিপশন নিন, যাতে কোনো বাধা ছাড়াই চলতে থাকে। 😊✨`
+            : `স্যার, আপনি আমাদের বিশ্বস্ত সদস্য! সাবস্ক্রিপশন রিনিউ করুন এবং আগের মতোই নিরবচ্ছিন্নভাবে উপভোগ করতে থাকুন। 🌟😊`,
+          isFree
+            ? `স্যার, আপনার ফ্রি ট্রায়াল মাত্র ২ দিন বাকি! এখনই সাবস্ক্রিপশন নিন। 😊`
+            : `স্যার, প্রিমিয়াম মেয়াদ মাত্র ২ দিন বাকি! রিনিউ করুন। 🌟`
+        ] : [
+          isFree
+            ? `স্যার, আপনি দারুণভাবে হিসাব গুছিয়ে নিচ্ছেন! আজই সাবস্ক্রিপশন নিন। 😊✨`
+            : `স্যার, আপনি আমাদের বিশ্বস্ত সদস্য! আজই রিনিউ করুন। 🌟😊`,
+          isFree
+            ? `স্যার, শেষ দিন! ফ্রি ট্রায়াল আজ শেষ হচ্ছে। সাবস্ক্রিপশন নিন। 😊`
+            : `স্যার, শেষ দিন! প্রিমিয়াম আজ শেষ হচ্ছে। রিনিউ করুন। 🌟`,
+          isFree
+            ? `স্যার, এখনো সময় আছে! আজই সাবস্ক্রিপশন নিন। 🚀`
+            : `স্যার, এখনো সময় আছে! আজই রিনিউ করুন। 🚀`
+        ];
+
+        // নোটিফিকেশনগুলো একটু পরপর দেখাও
+        msgs.forEach(function(body, i) {
+          setTimeout(function() {
+            new Notification(title, {
+              body: body,
+              icon: '/icon-192.png',
+              badge: '/icon-192.png',
+              vibrate: [200, 100, 200]
+            });
+          }, i * 3000); // ৩ সেকেন্ড পরপর
+        });
+
+        localStorage.setItem(LAST_CHECK_KEY, now.toString());
+      }
+    } catch(e) {
+      console.warn('[Notif]', e);
+    }
+  }, { once: true });
+})();
 </script>
 
 <script>

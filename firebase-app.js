@@ -46,6 +46,61 @@
       window.auth.useDeviceLanguage();
       console.log('[FB] ready');
       window.dispatchEvent(new Event('firebase-ready'));
+
+      // ── FCM Push Notification Setup ──────────────────────────
+      try {
+        if ('serviceWorker' in navigator && firebase.messaging) {
+          const messaging = firebase.messaging();
+          window.fcmMessaging = messaging;
+
+          // Permission নাও ও token সেভ করো
+          async function setupFCM() {
+            try {
+              const permission = await Notification.requestPermission();
+              if (permission !== 'granted') return;
+
+              const token = await messaging.getToken({
+                vapidKey: 'DIzO5_FRYtQ6BBSegFDP715p1U_Mn1RS0pHMgGmplvk',
+                serviceWorkerRegistration: await navigator.serviceWorker.ready
+              });
+
+              if (!token) return;
+
+              // Token Firestore এ সেভ করো
+              const session = _getShopSession();
+              if (session && session.phone) {
+                const uid = 'shop_' + session.phone;
+                await window.db.collection('users').doc(uid).set({
+                  fcmToken: token,
+                  fcmUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+              }
+
+              // Foreground notification
+              messaging.onMessage(function(payload) {
+                const { title, body } = payload.notification || {};
+                if (Notification.permission === 'granted') {
+                  new Notification(title || 'হিসাব লেখা', {
+                    body: body || '',
+                    icon: '/icon-192.png'
+                  });
+                }
+              });
+
+            } catch(e) {
+              console.warn('[FCM] setup error', e);
+            }
+          }
+
+          // লগইনের পরে FCM চালু করো
+          window.addEventListener('tk-login', setupFCM);
+          // যদি ইতিমধ্যে লগইন থাকে
+          const existingSession = _getShopSession();
+          if (existingSession) setTimeout(setupFCM, 2000);
+        }
+      } catch(e) {
+        console.warn('[FCM] init error', e);
+      }
     } catch (e) {
       console.error('[FB] init error', e);
       window.dispatchEvent(new Event('firebase-error'));

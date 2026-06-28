@@ -32,3 +32,41 @@ self.addEventListener('fetch', e => {
     })
   );
 });
+
+// ── FCM Push Notification ────────────────────────────────────
+importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/10.12.5/firebase-messaging-compat.js');
+
+firebase.initializeApp({
+  apiKey: "AIzaSyDaydixwJBYqnvANlVOeuZ2686V5813Cls",
+  authDomain: "dokan-hisab-35ca7.firebaseapp.com",
+  projectId: "dokan-hisab-35ca7",
+  storageBucket: "dokan-hisab-35ca7.firebasestorage.app",
+  messagingSenderId: "549298306650",
+  appId: "1:549298306650:web:1e40c400f50b982b20e263"
+});
+
+const messaging = firebase.messaging();
+
+// Background notification
+messaging.onBackgroundMessage(function(payload) {
+  const { title, body, icon } = payload.notification || {};
+  self.registration.showNotification(title || 'হিসাব লেখা', {
+    body: body || '',
+    icon: icon || '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [200, 100, 200],
+    data: payload.data || {}
+  });
+});
+
+// Notification click — অ্যাপ খুলবে
+self.addEventListener('notificationclick', function(e) {
+  e.notification.close();
+  e.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(list) {
+      if (list.length > 0) return list[0].focus();
+      return clients.openWindow('/');
+    })
+  );
+});
