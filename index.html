@@ -725,8 +725,6 @@ setTimeout(function(){
       </div>
     </div>
 
-    <!-- TX HISTORY -->
-    <div class="tx-history" id="txHistory"></div>
   </div>
 
   <!-- CONFIRM -->
@@ -1315,7 +1313,6 @@ function renderDetail() {
   document.getElementById('dtBalLeft').innerHTML = `<div style="font-size:12px;opacity:0.8">${balLabel}</div><span style="color:${balColor}">৳${fmtAmt(Math.abs(bal))}</span>`;
   document.getElementById('dtBalRight').innerHTML = fmtTime(c.updatedAt || c.createdAt || Date.now());
 
-  renderTxHistory();
   updateConfirmBtn();
 }
 
