@@ -938,7 +938,7 @@ function renderSubBadge() {
   } else if (sub.plan === 'free') {
     el.innerHTML = `<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:14px;font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;display:inline-block" onclick="showSubPlans()">⏳ ফ্রি • ${bn(days)} দিন বাকি</span>`;
   } else {
-    el.innerHTML = `<span style="background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700">💎 প্রিমিয়াম • ${bn(days)} দিন</span>`;
+    el.innerHTML = `<span style="background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;display:inline-block">💎 ${bn(days)}দিন</span>`;
   }
 }
 
