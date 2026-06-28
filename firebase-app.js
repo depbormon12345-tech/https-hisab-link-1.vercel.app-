@@ -87,6 +87,8 @@ async function shopRegister(shopName, phone, password) {
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }
     }, { merge: true });
+    // নতুন অ্যাকাউন্ট — আগের সব local ডাটা মুছো
+    _clearAllLocalData();
     _setShopSession({ phone, shopName });
     return { phone, shopName };
 }
@@ -126,6 +128,17 @@ async function shopRegister(shopName, phone, password) {
   }
   function _clearShopSession() {
     localStorage.removeItem('tk_shop_session');
+  }
+  function _clearAllLocalData() {
+    // customer ও tx ডাটা মুছো
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach(function(k) {
+        if (k.startsWith('tk2_') || k === 'subscription') {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch(e) {}
   }
 
   // ── TKAuth PUBLIC API ────────────────────────────────────────
