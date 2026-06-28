@@ -1204,11 +1204,45 @@ function sendReminderWhatsApp(){
 }
 
 function showCustomerReport(){
- const c=getCustomers()[currentCustId]||{};
- const txs=getTxs(currentCustId)||[];
- showModal(`<div class="modal-title">📄 রিপোর্ট</div>
- <div class="modal-sub">নাম: ${c.name||''}<br>মোবাইল: ${c.phone||''}<br>বর্তমান ব্যালেন্স: ৳${Math.abs(c.balance||0)}<br>মোট লেনদেন: ${txs.length}</div>
- <button class="modal-btn secondary" onclick="closeModal()">বন্ধ</button>`);
+  const c = getCustomers()[currentCustId] || {};
+  const txs = getTxs(currentCustId) || [];
+  const bal = c.balance || 0;
+  const balLabel = bal > 0 ? 'পাবো' : bal < 0 ? 'দেবো' : 'বরাবর';
+  const balColor = bal > 0 ? '#dc2626' : bal < 0 ? '#16a34a' : '#6b7280';
+  const balBg = bal > 0 ? '#fee2e2' : bal < 0 ? '#dcfce7' : '#f3f4f6';
+  const totalGive = txs.filter(t=>t.type==='give').reduce((s,t)=>s+(t.amount||0),0);
+  const totalGet = txs.filter(t=>t.type==='get').reduce((s,t)=>s+(t.amount||0),0);
+  const col = avatarColor(c.name||'?');
+  const waNum = c.phone ? (c.phone.startsWith('0') ? '88'+c.phone : c.phone) : '';
+  const waText = `📒 *হিসাব রিপোর্ট*\n👤 ${c.name||''}\n📞 ${c.phone||''}\n\n💰 মোট দিলাম: ৳${fmtAmt(totalGive)}\n💰 মোট পেলাম: ৳${fmtAmt(totalGet)}\n📊 বর্তমান ${balLabel}: ৳${fmtAmt(Math.abs(bal))}\n🔢 মোট লেনদেন: ${txs.length}টি`;
+
+  showModal(`
+    <div style="text-align:center;margin-bottom:16px">
+      <div style="width:56px;height:56px;border-radius:50%;background:${col};display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;margin:0 auto 10px">${initials(c.name||'?')}</div>
+      <div style="font-size:18px;font-weight:800;color:#111">${c.name||''}</div>
+      ${c.phone ? `<div style="font-size:13px;color:#6b7280;margin-top:3px">📞 ${c.phone}</div>` : ''}
+    </div>
+    <div style="background:${balBg};border-radius:14px;padding:14px;text-align:center;margin-bottom:14px">
+      <div style="font-size:12px;color:${balColor};font-weight:700;margin-bottom:4px">${balLabel}</div>
+      <div style="font-size:28px;font-weight:900;color:${balColor}">৳${fmtAmt(Math.abs(bal))}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <div style="flex:1;background:#fee2e2;border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:#dc2626;font-weight:700;margin-bottom:4px">মোট দিলাম</div>
+        <div style="font-size:16px;font-weight:800;color:#dc2626">৳${fmtAmt(totalGive)}</div>
+      </div>
+      <div style="flex:1;background:#dcfce7;border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:#16a34a;font-weight:700;margin-bottom:4px">মোট পেলাম</div>
+        <div style="font-size:16px;font-weight:800;color:#16a34a">৳${fmtAmt(totalGet)}</div>
+      </div>
+      <div style="flex:1;background:#dbeafe;border-radius:12px;padding:10px;text-align:center">
+        <div style="font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:4px">লেনদেন</div>
+        <div style="font-size:16px;font-weight:800;color:#1d4ed8">${txs.length}টি</div>
+      </div>
+    </div>
+    ${waNum ? `<button class="modal-btn primary" style="background:#25D366;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:8px" onclick="window.open('https://wa.me/${waNum}?text=${encodeURIComponent(waText)}','_blank')">📲 WhatsApp এ পাঠান</button>` : ''}
+    <button class="modal-btn secondary" onclick="closeModal()">বন্ধ</button>
+  `);
 }
 
 function confirmDelete() {
@@ -1256,26 +1290,47 @@ function renderTxHistory() {
   if (txs.length === 0) { el.innerHTML = '<div class="no-tx">কোনো লেনদেন নেই</div>'; return; }
 
   const sorted = [...txs].sort((a,b) => (b.ts||0) - (a.ts||0));
-  let html = '';
-  sorted.forEach(tx => {
+
+  let html = `<div style="overflow-x:auto;padding:0 6px 10px">
+    <table style="width:100%;border-collapse:collapse;font-size:12px;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 1px 8px rgba(0,0,0,0.08)">
+      <thead>
+        <tr style="background:#1d4ed8;color:#fff">
+          <th style="padding:8px 6px;text-align:left;font-weight:700;white-space:nowrap">তারিখ</th>
+          <th style="padding:8px 6px;text-align:left;font-weight:700">বিবরণ</th>
+          <th style="padding:8px 6px;text-align:right;font-weight:700;white-space:nowrap">দিলাম</th>
+          <th style="padding:8px 6px;text-align:right;font-weight:700;white-space:nowrap">পেলাম</th>
+          <th style="padding:8px 6px;text-align:right;font-weight:700;white-space:nowrap">ব্যালেন্স</th>
+        </tr>
+      </thead>
+      <tbody>`;
+
+  sorted.forEach((tx, i) => {
     const isGet = tx.type === 'get';
-    const icon = isGet ? '💰' : '💸';
     const typeLabel = tx.type === 'jor' ? 'জের' : isGet ? 'পেলাম' : 'দিলাম';
-    const typeClass = isGet ? 'get' : 'give';
-    const sign = isGet ? '+' : '-';
-    html += `<div class="tx-row" onclick="showTxDetail('${tx.id}')">
-      <div class="tx-icon ${typeClass}">${icon}</div>
-      <div class="tx-meta">
-        <div class="tx-type ${typeClass}">${typeLabel}</div>
-        ${tx.note ? `<div class="tx-note-text">${tx.note}</div>` : ''}
-        <div class="tx-time">${fmtTime(tx.ts)}</div>
-      </div>
-      <div class="tx-right">
-        <div class="tx-amount ${typeClass}">${sign}৳${fmtAmt(tx.amount)}</div>
-        <div class="tx-bal-after">ব্যালেন্স: ৳${fmtAmt(tx.balanceAfter || 0)}</div>
-      </div>
-    </div>`;
+    const rowBg = i % 2 === 0 ? '#f8faff' : '#ffffff';
+    const bal = tx.balanceAfter || 0;
+    const balColor = bal > 0 ? '#dc2626' : bal < 0 ? '#16a34a' : '#6b7280';
+
+    html += `<tr style="background:${rowBg};cursor:pointer" onclick="showTxDetail('${tx.id}')">
+      <td style="padding:7px 6px;color:#6b7280;white-space:nowrap;border-bottom:1px solid #e5e7eb">${fmtTime(tx.ts)}</td>
+      <td style="padding:7px 6px;color:#374151;border-bottom:1px solid #e5e7eb;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${tx.note || typeLabel}</td>
+      <td style="padding:7px 6px;text-align:right;font-weight:700;color:#dc2626;border-bottom:1px solid #e5e7eb">${!isGet ? '৳'+fmtAmt(tx.amount) : ''}</td>
+      <td style="padding:7px 6px;text-align:right;font-weight:700;color:#16a34a;border-bottom:1px solid #e5e7eb">${isGet ? '৳'+fmtAmt(tx.amount) : ''}</td>
+      <td style="padding:7px 6px;text-align:right;font-weight:700;color:${balColor};border-bottom:1px solid #e5e7eb;white-space:nowrap">৳${fmtAmt(Math.abs(bal))}</td>
+    </tr>`;
   });
+
+  // মোট সারি
+  const totalGive = txs.filter(t=>t.type==='give'||t.type==='jor').reduce((s,t)=>s+(t.amount||0),0);
+  const totalGet = txs.filter(t=>t.type==='get').reduce((s,t)=>s+(t.amount||0),0);
+  html += `<tr style="background:#1d4ed8;color:#fff;font-weight:800">
+    <td style="padding:8px 6px" colspan="2">মোট</td>
+    <td style="padding:8px 6px;text-align:right">৳${fmtAmt(totalGive)}</td>
+    <td style="padding:8px 6px;text-align:right">৳${fmtAmt(totalGet)}</td>
+    <td style="padding:8px 6px;text-align:right"></td>
+  </tr>`;
+
+  html += `</tbody></table></div>`;
   el.innerHTML = html;
 }
 
