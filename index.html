@@ -14,7 +14,7 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
-<script defer src="firebase-app.js?v=10"></script>
+<script defer src="firebase-app.js?v=4"></script>
 <style>
 :root {
   --primary: #1d4ed8;
@@ -758,9 +758,20 @@ const BKASH_NUM = '01858293479';
 function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }
 function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
 function getCustomers() { return lsGet(K_CUSTOMERS) || {}; }
-function saveCustomers(c) { lsSet(K_CUSTOMERS, c); }
+function saveCustomers(c) {
+  // সবসময় _dirty flag সেট করো যাতে pull-এ orphan cleanup মুছতে না পারে
+  Object.keys(c).forEach(function(cid) {
+    if (c[cid] && !c[cid]._dirty) c[cid]._dirty = true;
+  });
+  lsSet(K_CUSTOMERS, c);
+}
 function getTxs(id) { return lsGet(K_TX(id)) || []; }
-function saveTxs(id, list) { lsSet(K_TX(id), list); }
+function saveTxs(id, list) {
+  const marked = list.map(function(t) {
+    return t._dirty ? t : Object.assign({}, t, { _dirty: true });
+  });
+  lsSet(K_TX(id), marked);
+}
 
 // ===== SUBSCRIPTION =====
 function getSub() { return lsGet(K_SUB) || { expiry: null, plan: null, createdAt: null }; }

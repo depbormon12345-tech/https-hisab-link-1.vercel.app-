@@ -295,12 +295,15 @@ async function shopRegister(shopName, phone, password) {
       }
 
       // orphan cleanup — _dirty customer কখনোই মুছবে না
-      Object.keys(localCustomers).forEach(function (cid) {
-        if (!remoteIds.has(cid)) {
-          if (localCustomers[cid]._dirty) return; // dirty = Firebase এ যায়নি, রাখো
-          delete localCustomers[cid];
-        }
-      });
+      // এবং push pending থাকলে (dirtyCount > 0) কোনো cleanup করবো না
+      const hasDirty = Object.values(localCustomers).some(function(c) { return c && c._dirty; });
+      if (!hasDirty) {
+        Object.keys(localCustomers).forEach(function (cid) {
+          if (!remoteIds.has(cid)) {
+            delete localCustomers[cid];
+          }
+        });
+      }
       // সরাসরি localStorage এ সেভ — hook trigger করবে না
       try { localStorage.setItem('tk2_customers', JSON.stringify(localCustomers)); } catch(e) {}
       // UI আপডেট করো
@@ -379,7 +382,8 @@ async function shopRegister(shopName, phone, password) {
       Object.keys(customers).forEach(function (cid) {
         const c = Object.assign({}, customers[cid]); delete c._dirty; freshC[cid] = c;
       });
-      saveCustomers(freshC);
+      // push শেষে সরাসরি localStorage এ — hook bypass করে _dirty আর set হবে না
+      try { localStorage.setItem('tk2_customers', JSON.stringify(freshC)); } catch(e) {}
 
       const deleted = JSON.parse(localStorage.getItem('tk2_deleted') || '[]');
       if (deleted.length) {
