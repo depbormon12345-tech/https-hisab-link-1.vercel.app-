@@ -201,6 +201,24 @@ body {
 .badge-premium { background: #3d2800; color: var(--yellow); }
 .badge-expired { background: #2a0a0a; color: var(--red); }
 .user-date { font-size: 10px; color: var(--text2); text-align: right; flex-shrink: 0; }
+.del-btn {
+  background: transparent; border: 1px solid #3a1010;
+  color: var(--red); width: 30px; height: 30px;
+  border-radius: 8px; cursor: pointer; font-size: 14px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: all 0.15s;
+}
+.del-btn:hover { background: var(--red); color: #fff; }
+.toast-msg {
+  position: fixed; bottom: 24px; left: 50%;
+  transform: translateX(-50%);
+  background: #1f2937; color: #fff;
+  padding: 10px 20px; border-radius: 24px;
+  font-size: 13px; z-index: 999;
+  opacity: 0; transition: opacity 0.2s;
+  pointer-events: none; white-space: nowrap;
+}
+.toast-msg.show { opacity: 1; }
 
 .loading-row { padding: 30px; text-align: center; color: var(--text2); font-size: 13px; }
 .spinner {
@@ -490,7 +508,7 @@ whenReady(function() {
         const badgeClass = u.isPremium ? 'badge-premium' : u.isExpired ? 'badge-expired' : 'badge-free';
         const badgeLabel = u.isPremium ? '⭐ প্রিমিয়াম' : u.isExpired ? '❌ মেয়াদ শেষ' : '🟢 ফ্রি';
         const dateStr = u.expiry ? new Date(u.expiry).toLocaleDateString('bn-BD') : '—';
-        html += `<div class="user-row">
+        html += `<div class="user-row" id="row-${u.id}">
           <div class="user-avatar">${initial}</div>
           <div class="user-info">
             <div class="user-name">${u.name}</div>
@@ -498,6 +516,7 @@ whenReady(function() {
           </div>
           <span class="user-badge ${badgeClass}">${badgeLabel}</span>
           <div class="user-date">মেয়াদ:<br>${dateStr}</div>
+          <button class="del-btn" onclick="deleteUser('${u.id}', '${u.name}')">🗑️</button>
         </div>`;
       });
       if (!html) html = '<div class="empty-row">কোনো ইউজার নেই</div>';
@@ -507,6 +526,34 @@ whenReady(function() {
       document.getElementById('userList').innerHTML = `<div class="empty-row">❌ লোড হয়নি: ${e.message}</div>`;
     }
   };
+
+  window.deleteUser = async function(uid, name) {
+    if (!confirm('"' + name + '" ডিলিট করবেন? এটা পূর্বাবস্থায় ফেরানো যাবে না।')) return;
+    try {
+      await db.collection('users').doc(uid).delete();
+      const row = document.getElementById('row-' + uid);
+      if (row) row.remove();
+      showToast('✅ ' + name + ' ডিলিট হয়েছে');
+      // stats আপডেট
+      const total = parseInt(document.getElementById('totalUsers').textContent) - 1;
+      document.getElementById('totalUsers').textContent = total;
+    } catch(e) {
+      showToast('❌ ডিলিট হয়নি: ' + e.message);
+    }
+  };
+
+  function showToast(msg) {
+    let t = document.getElementById('adminToast');
+    if (!t) {
+      t = document.createElement('div');
+      t.id = 'adminToast';
+      t.className = 'toast-msg';
+      document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(function() { t.classList.remove('show'); }, 2500);
+  }
 
   function updateQuota(type, used, pct) {
     const barClass = pct >= 80 ? 'danger' : pct >= 50 ? 'warn' : 'safe';
